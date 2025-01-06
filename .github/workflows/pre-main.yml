@@ -1,0 +1,30 @@
+---
+name: Test Changes
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  run-ocp:
+    runs-on: ubuntu-22.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      - name: check if OCP_PULL_SECRET exists
+        env: 
+          super_secret: ${{ secrets.OCP_PULL_SECRET }}
+        if: ${{ env.super_secret == '' }}
+        run: 'echo the secret \"OCP_PULL_SECRET\" has not been made; echo please go to \"settings \> secrets \> actions\" to create it'
+
+      - name: Run the action
+        uses: ./
+        with:
+          crcPullSecret: $OCP_PULL_SECRET
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}

@@ -1,0 +1,113 @@
+name: 'Quick OCP'
+description: 'Quickly deploy an OpenShift cluster on Github Actions hosted runners'
+inputs:
+  crcPullSecret:
+    description: 'Pull secret for CodeReady Containers'
+    required: true
+  crcMemory:
+    description: 'Memory Allocation for CodeReady Containers'
+    required: false
+    default: '10752'
+  crcCpu:
+    description: 'CPU Allocation for CodeReady Containers'
+    required: false
+    default: '4'
+  enableTelemetry:
+    description: 'Enable telemetry for CodeReady Containers'
+    required: false
+    default: 'yes'
+  crcDiskSize:
+    description: 'Disk size for CodeReady Containers'
+    required: false
+    default: '60'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: false
+        large-packages: true
+        android: true
+        dotnet: true
+        haskell: true
+        docker-images: true
+        swap-storage: true
+      continue-on-error: true
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt install qemu-kvm libvirt-daemon libvirt-daemon-system network-manager jq
+
+    - name: Enable KVM group perms
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+        sudo apt-get update
+        sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu qemu-system-x86
+        sudo usermod -a -G kvm,libvirt $USER
+        sudo adduser `id -un` libvirt
+
+    # Restart docker using /mnt/docker-storage (sdb) instead of /var/lib/docker (sda).
+    # This step needs to be done right after the partner repo's bootstrap scripts, as they
+    # overwrite the docker's daemon.json.
+    - name: Make docker to use /mnt (sdb) for storage
+      shell: bash
+      run: |
+        df -h
+        lsblk
+        sudo mkdir /mnt/docker-storage
+        sudo jq '.  +={"data-root" : "/mnt/docker-storage"}' < /etc/docker/daemon.json > /tmp/docker-daemon.json
+        sudo cp /tmp/docker-daemon.json /etc/docker/daemon.json
+        cat /etc/docker/daemon.json
+        sudo systemctl restart docker
+        sudo ls -la /mnt/docker-storage
+
+    - name: reload the terminal to load the libvirt group
+      shell: bash
+      run: |
+        sudo -E bash -c 'exec su -l '$USER
+
+    - name: Check if user is part of libvirt group
+      shell: bash
+      run: |
+        groups
+        sudo usermod -a -G libvirt $USER
+        groups
+      
+    - name: Write the pull secret to json file
+      shell: bash
+      run: |
+        echo ${{ inputs.crcPullSecret }} > pull-secret.json
+
+    - name: Download and Install CodeReady Containers
+      shell: bash
+      run: |
+        curl -L -o crc.tar.xz https://mirror.openshift.com/pub/openshift-v4/clients/crc/latest/crc-linux-amd64.tar.xz
+        tar -xvf crc.tar.xz
+        sudo mv crc-linux-*/crc /usr/local/bin
+        crc config set cpus ${{ inputs.crcCpu }}
+        crc config set memory ${{ inputs.crcMemory }}
+        crc config set disk-size ${{ inputs.crcDiskSize }}
+        crc config set consent-telemetry ${{ inputs.enableTelemetry }}
+        crc config set network-mode user
+        sudo -su $USER crc setup
+        sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug
+
+    - name: Wait until node is Ready state
+      shell: bash
+      run: |
+        while [[ $(oc get nodes --request-timeout='30s' -o json | jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status') == "False" ]]; do
+          echo "Waiting for node to be in Ready state"
+          sleep 5
+        done
+
+    - name: Set the adm policy
+      shell: bash
+      run: |
+        oc adm policy add-scc-to-user privileged user
