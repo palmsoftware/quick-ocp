@@ -25,6 +25,6 @@ jobs:
       - name: Run the action
         uses: ./
         with:
-          crcPullSecret: $OCP_PULL_SECRET
+          ocpPullSecret: $OCP_PULL_SECRET
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}

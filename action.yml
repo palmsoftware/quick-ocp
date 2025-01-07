@@ -1,23 +1,23 @@
 name: 'Quick OCP'
 description: 'Quickly deploy an OpenShift cluster on Github Actions hosted runners'
 inputs:
-  crcPullSecret:
-    description: 'Pull secret for CodeReady Containers'
+  ocpPullSecret:
+    description: 'Pull secret for OpenShift Local'
     required: true
   crcMemory:
-    description: 'Memory Allocation for CodeReady Containers'
+    description: 'Memory Allocation for OpenShift Local'
     required: false
     default: '10752'
   crcCpu:
-    description: 'CPU Allocation for CodeReady Containers'
+    description: 'CPU Allocation for OpenShift Local'
     required: false
     default: '4'
   enableTelemetry:
-    description: 'Enable telemetry for CodeReady Containers'
+    description: 'Enable telemetry for OpenShift Local'
     required: false
     default: 'yes'
   crcDiskSize:
-    description: 'Disk size for CodeReady Containers'
+    description: 'Disk size for OpenShift Local'
     required: false
     default: '60'
 
@@ -85,7 +85,7 @@ runs:
       run: |
         echo ${{ inputs.crcPullSecret }} > pull-secret.json
 
-    - name: Download and Install CodeReady Containers
+    - name: Download and Install OpenShift Local
       shell: bash
       run: |
         curl -L -o crc.tar.xz https://mirror.openshift.com/pub/openshift-v4/clients/crc/latest/crc-linux-amd64.tar.xz
