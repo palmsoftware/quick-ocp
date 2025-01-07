@@ -5,6 +5,8 @@ This will work on the free tier lowest resource runners at the moment with addit
 
 Read more about Github Actions runners [here](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners).
 
+If you are looking to quickly spawn Kubernetes in your Action runner, try [quick-k8s](https://github.com/palmsoftware/quick-k8s).
+
 # Usage:
 
 Basic Usage:
