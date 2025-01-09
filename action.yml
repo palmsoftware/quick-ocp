@@ -83,7 +83,7 @@ runs:
     - name: Write the pull secret to json file
       shell: bash
       run: |
-        echo ${{ inputs.crcPullSecret }} > pull-secret.json
+        echo ${{ inputs.ocpPullSecret }} > pull-secret.json
 
     - name: Download and Install OpenShift Local
       shell: bash
