@@ -16,7 +16,7 @@ You will need to supply your OCP Pull Secret as a Github Actions Secret.  Your p
 ```
 steps:
   - name: Set up Quick-OCP
-    uses: palmsoftware/quick-ocp@v0.0.1
+    uses: palmsoftware/quick-ocp@v0.0.2
     with:
           ocpPullSecret: $OCP_PULL_SECRET
         env:
