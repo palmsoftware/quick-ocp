@@ -8,8 +8,29 @@ name: Test Changes
     branches: [main]
 
 jobs:
-  run-ocp:
+  run-ocp-x86:
     runs-on: ubuntu-22.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      - name: check if OCP_PULL_SECRET exists
+        env: 
+          super_secret: ${{ secrets.OCP_PULL_SECRET }}
+        if: ${{ env.super_secret == '' }}
+        run: 'echo the secret \"OCP_PULL_SECRET\" has not been made; echo please go to \"settings \> secrets \> actions\" to create it'
+
+      - name: Run the action
+        uses: ./
+        with:
+          ocpPullSecret: $OCP_PULL_SECRET
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+  run-ocp-arm:
+    runs-on: ubuntu-22.04-arm
     env:
       SHELL: /bin/bash
     steps:
