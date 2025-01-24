@@ -42,14 +42,24 @@ runs:
         sudo apt-get update
         sudo apt install qemu-kvm libvirt-daemon libvirt-daemon-system network-manager jq
 
-    - name: Enable KVM group perms
+    - name: Enable KVM group perms (x86)
       shell: bash
+      if: runner.os == 'Linux' && runner.arch == 'x64'
       run: |
         echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
         sudo udevadm control --reload-rules
         sudo udevadm trigger --name-match=kvm
         sudo apt-get update
         sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu qemu-system-x86
+        sudo usermod -a -G kvm,libvirt $USER
+        sudo adduser `id -un` libvirt
+
+    - name: Enable KVM group perms (arm64)
+      shell: bash
+      if: runner.os == 'Linux' && runner.arch == 'arm64'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu qemu-system-arm
         sudo usermod -a -G kvm,libvirt $USER
         sudo adduser `id -un` libvirt
 
@@ -85,10 +95,26 @@ runs:
       run: |
         echo ${{ inputs.ocpPullSecret }} > pull-secret.json
 
-    - name: Download and Install OpenShift Local
+    - name: Download and Install OpenShift Local (x86)
       shell: bash
+      if: runner.os == 'Linux' && runner.arch == 'x64'
       run: |
         curl -L -o crc.tar.xz https://mirror.openshift.com/pub/openshift-v4/clients/crc/latest/crc-linux-amd64.tar.xz
+        tar -xvf crc.tar.xz
+        sudo mv crc-linux-*/crc /usr/local/bin
+        crc config set cpus ${{ inputs.crcCpu }}
+        crc config set memory ${{ inputs.crcMemory }}
+        crc config set disk-size ${{ inputs.crcDiskSize }}
+        crc config set consent-telemetry ${{ inputs.enableTelemetry }}
+        crc config set network-mode user
+        sudo -su $USER crc setup
+        sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug
+
+    - name: Download and Install OpenShift Local (arm64)
+      shell: bash
+      if: runner.os == 'Linux' && runner.arch == 'arm64'
+      run: |
+        curl -L -o crc.tar.xz https://mirror.openshift.com/pub/openshift-v4/clients/crc/latest/crc-linux-arm64.tar.xz
         tar -xvf crc.tar.xz
         sudo mv crc-linux-*/crc /usr/local/bin
         crc config set cpus ${{ inputs.crcCpu }}
