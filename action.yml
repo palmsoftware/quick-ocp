@@ -19,7 +19,7 @@ inputs:
   crcDiskSize:
     description: 'Disk size for OpenShift Local'
     required: false
-    default: '60'
+    default: '35'
 
 runs:
   using: 'composite'
@@ -42,6 +42,18 @@ runs:
         sudo apt-get update
         sudo apt install qemu-kvm libvirt-daemon libvirt-daemon-system network-manager jq
 
+    - name: Ubuntu 22.04 dependencies
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      shell: bash
+      run: |
+        sudo apt-get install -y qemu
+    
+    - name: Ubuntu 24.04 dependencies
+      if: ${{ matrix.os == 'ubuntu-24.04' }}
+      shell: bash
+      run: |
+        sudo apt-get install -y virtiofsd
+
     - name: Enable KVM group perms
       shell: bash
       run: |
@@ -49,9 +61,23 @@ runs:
         sudo udevadm control --reload-rules
         sudo udevadm trigger --name-match=kvm
         sudo apt-get update
-        sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu qemu-system-x86
+        sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system-x86
         sudo usermod -a -G kvm,libvirt $USER
         sudo adduser `id -un` libvirt
+
+    - name: Ubuntu 20.04 Specific
+      if: ${{ matrix.os == 'ubuntu-20.04' }}
+      shell: bash
+      run: |
+        sudo apt-get upgrade -y
+
+    # If there is no /etc/docker/daemon.json, create it.
+    - name: Create /etc/docker/daemon.json
+      shell: bash
+      run: |
+        if [ ! -f /etc/docker/daemon.json ]; then
+          echo "{}" | sudo tee /etc/docker/daemon.json
+        fi
 
     # Restart docker using /mnt/docker-storage (sdb) instead of /var/lib/docker (sda).
     # This step needs to be done right after the partner repo's bootstrap scripts, as they
@@ -98,6 +124,11 @@ runs:
         crc config set network-mode user
         sudo -su $USER crc setup
         sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug
+
+    - name: Bootstrap the runner with kubectl and oc clients
+      shell: bash
+      run: |
+        sudo ${{ github.action_path }}/scripts/install-oc-tools.sh --latest 4.17
 
     - name: Wait until node is Ready state
       shell: bash
