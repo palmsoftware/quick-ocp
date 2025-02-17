@@ -7,6 +7,10 @@ Read more about Github Actions runners [here](https://docs.github.com/en/actions
 
 If you are looking to quickly spawn Kubernetes in your Action runner, try [quick-k8s](https://github.com/palmsoftware/quick-k8s).
 
+# Known Limitations:
+
+- This does not run correctly on `ubuntu-20.04` runners due to the version of `libvirt` available in the mirrors isn't the minimum version required by OpenShift Local.
+
 # Usage:
 
 Basic Usage:
@@ -16,7 +20,7 @@ You will need to supply your OCP Pull Secret as a Github Actions Secret.  Your p
 ```
 steps:
   - name: Set up Quick-OCP
-    uses: palmsoftware/quick-ocp@v0.0.2
+    uses: palmsoftware/quick-ocp@v0.0.4
     with:
           ocpPullSecret: $OCP_PULL_SECRET
         env:
@@ -29,3 +33,6 @@ https://developers.redhat.com/products/openshift-local/overview
 
 This is development only environment that is provided by Red Hat that will allow you do some quick testing in a full OpenShift environment.
 
+## References
+
+- [install-oc-tools.sh](./scripts/install-oc-tools.sh) was a script copied from [install-oc-tools](https://github.com/cptmorgan-rh/install-oc-tools) and slightly modified for `aarch64`.
