@@ -20,10 +20,55 @@ inputs:
     description: 'Disk size for OpenShift Local'
     required: false
     default: '35'
+  bundleCache:
+    description: 'Cache the crc bundles for faster startup'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
   steps:
+    - name: Download and Install OpenShift Local Binary
+      shell: bash
+      run: |
+        curl -L -o crc.tar.xz https://mirror.openshift.com/pub/openshift-v4/clients/crc/latest/crc-linux-amd64.tar.xz
+        tar -xvf crc.tar.xz
+        sudo mv crc-linux-*/crc /usr/local/bin
+
+    - name: CRC version lookup from crc
+      shell: bash
+      run: |
+        crc version
+        echo $PATH
+        VERSION_NUMBER=$(crc version | grep CRC | awk '{ print $3 }')
+        echo $VERSION_NUMBER
+        echo $(crc version | grep CRC | awk '{ print $3 }')
+        echo "version_number=$(crc version | grep CRC | awk '{ print $3 }')" | tee "${GITHUB_OUTPUT}"
+      id: crc_version_lookup
+
+    - name: OCP version lookup from crc
+      shell: bash
+      run: |
+        crc version
+        echo $(crc version | grep OpenShift | awk '{ print $3 }')
+        echo "ocp_version=$(crc version | grep OpenShift | awk '{ print $3 }')" | tee "${GITHUB_OUTPUT}"
+      id: ocp_version_lookup
+
+    - name: Restore CRC bundles from the cache
+      uses: actions/cache/restore@v4
+      if: ${{ inputs.bundleCache == 'true' }}
+      id: restore-cache
+      with:
+        path: /home/runner/.crc/bundletmp
+        key: ${{ runner.os }}-${{ runner.arch }}-crc-cache-${{ steps.crc_version_lookup.outputs.version_number }}
+
+    - name: Copy the bundletmp to actual folder if cache hit
+      if: steps.restore-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        mkdir -p ~/.crc/cache
+        cp -r /home/runner/.crc/bundletmp/* ~/.crc/cache/
+
     - name: Free Disk Space (Ubuntu)
       uses: jlumbroso/free-disk-space@main
       with:
@@ -111,24 +156,43 @@ runs:
       run: |
         echo ${{ inputs.ocpPullSecret }} > pull-secret.json
 
-    - name: Download and Install OpenShift Local
+    - name: Prompt the user if bundleCache is false
+      if: ${{ inputs.bundleCache == false }}
+      shell: bash
+      run: echo "Skipping cache restore due to bundleCache being false"
+
+    - name: Start OpenShift Local
       shell: bash
       run: |
-        curl -L -o crc.tar.xz https://mirror.openshift.com/pub/openshift-v4/clients/crc/latest/crc-linux-amd64.tar.xz
-        tar -xvf crc.tar.xz
-        sudo mv crc-linux-*/crc /usr/local/bin
         crc config set cpus ${{ inputs.crcCpu }}
         crc config set memory ${{ inputs.crcMemory }}
         crc config set disk-size ${{ inputs.crcDiskSize }}
         crc config set consent-telemetry ${{ inputs.enableTelemetry }}
         crc config set network-mode user
-        sudo -su $USER crc setup
+
+    - name: Run setup
+      shell: bash
+      run: |
+        sudo -su $USER crc setup --log-level debug --show-progressbars
         sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug
+
+    - name: Move the .crcbundle files to another temporary folder
+      shell: bash
+      run: |
+        mkdir -p /home/runner/.crc/bundletmp
+        mv ~/.crc/cache/*.crcbundle /home/runner/.crc/bundletmp/
+
+    - name: Cache the crc bundles using github actions cache
+      uses: actions/cache/save@v4
+      if: ${{ inputs.bundleCache == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
+      with:
+        path: /home/runner/.crc/bundletmp
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
 
     - name: Bootstrap the runner with kubectl and oc clients
       shell: bash
       run: |
-        sudo ${{ github.action_path }}/scripts/install-oc-tools.sh --latest 4.17
+        sudo ${{ github.action_path }}/scripts/install-oc-tools.sh --latest ${{ steps.ocp_version_lookup.outputs.ocp_version }}
 
     - name: Wait until node is Ready state
       shell: bash
