@@ -66,8 +66,8 @@ runs:
       if: steps.restore-cache.outputs.cache-hit == 'true'
       shell: bash
       run: |
-        mkdir -p ~/.crc/cache
-        cp -r /home/runner/.crc/bundletmp/* ~/.crc/cache/
+        mkdir -p /home/runner/.crc/cache
+        cp -r /home/runner/.crc/bundletmp/* /home/runner/.crc/cache/
 
     - name: Free Disk Space (Ubuntu)
       uses: jlumbroso/free-disk-space@main
@@ -180,7 +180,7 @@ runs:
       shell: bash
       run: |
         mkdir -p /home/runner/.crc/bundletmp
-        mv ~/.crc/cache/*.crcbundle /home/runner/.crc/bundletmp/
+        mv /home/runner/.crc/cache/*.crcbundle /home/runner/.crc/bundletmp/
 
     - name: Cache the crc bundles using github actions cache
       uses: actions/cache/save@v4
@@ -188,6 +188,16 @@ runs:
       with:
         path: /home/runner/.crc/bundletmp
         key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+
+    - name: Remove the bundle to save space
+      shell: bash
+      run: |
+        rm -rf /home/runner/.crc/bundletmp
+
+    - name: Print the disk statistics
+      shell: bash
+      run: |
+        df -h
 
     - name: Bootstrap the runner with kubectl and oc clients
       shell: bash
