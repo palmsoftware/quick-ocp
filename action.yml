@@ -217,3 +217,7 @@ runs:
       run: |
         oc adm policy add-scc-to-user privileged user
         oc adm policy add-scc-to-group privileged system:authenticated
+
+    - name: Wait for operators to be available
+      shell: bash
+      run: ./scripts/wait-for-operators.sh
