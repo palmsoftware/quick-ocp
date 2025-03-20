@@ -220,4 +220,4 @@ runs:
 
     - name: Wait for operators to be available
       shell: bash
-      run: ./scripts/wait-for-operators.sh
+      run: ${{ github.action_path }}/scripts/wait-for-operators.sh
