@@ -24,6 +24,10 @@ inputs:
     description: 'Cache the crc bundles for faster startup'
     required: false
     default: 'false'
+  waitForOperatorsReady:
+    description: 'Wait for all operators to be ready'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -219,5 +223,6 @@ runs:
         oc adm policy add-scc-to-group privileged system:authenticated
 
     - name: Wait for operators to be available
+      if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-operators.sh
