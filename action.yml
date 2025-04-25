@@ -89,7 +89,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt install qemu-kvm libvirt-daemon libvirt-daemon-system network-manager jq
+        sudo apt install qemu-kvm libvirt-daemon libvirt-daemon-system network-manager jq libvirt-daemon-driver-qemu virtiofsd -y
 
     - name: Ubuntu 22.04 dependencies
       if: ${{ matrix.os == 'ubuntu-22.04' }}
@@ -97,18 +97,18 @@ runs:
       run: |
         sudo apt-get install -y qemu
     
-    - name: Ubuntu 24.04 dependencies
-      if: ${{ matrix.os == 'ubuntu-24.04' }}
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y virtiofsd libvirt-daemon-system libvirt-daemon-driver-qemu
-        if systemctl list-unit-files | grep -q virtqemud.socket; then
-          sudo systemctl enable virtqemud.socket
-          sudo systemctl start virtqemud.socket
-        else
-          echo "virtqemud.socket unit file does not exist. Skipping enable/start steps."
-        fi
+    # - name: Ubuntu 24.04 dependencies
+    #   if: ${{ matrix.os == 'ubuntu-24.04' }}
+    #   shell: bash
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y virtiofsd libvirt-daemon-system libvirt-daemon-driver-qemu
+    #     if systemctl list-unit-files | grep -q virtqemud.socket; then
+    #       sudo systemctl enable virtqemud.socket
+    #       sudo systemctl start virtqemud.socket
+    #     else
+    #       echo "virtqemud.socket unit file does not exist. Skipping enable/start steps."
+    #     fi
 
     - name: Enable KVM group perms
       shell: bash
