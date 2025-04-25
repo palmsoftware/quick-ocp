@@ -85,29 +85,29 @@ runs:
         swap-storage: true
       continue-on-error: true
 
-    - name: Install dependencies
+    - name: Install dependencies for specific Ubuntu versions
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt install qemu-kvm libvirt-daemon libvirt-daemon-system network-manager jq
-
-    - name: Ubuntu 22.04 dependencies
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
-      shell: bash
-      run: |
-        sudo apt-get install -y qemu
-    
-    - name: Ubuntu 24.04 dependencies
-      if: ${{ matrix.os == 'ubuntu-24.04' }}
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y virtiofsd libvirt-daemon-system libvirt-daemon-driver-qemu
-        if systemctl list-unit-files | grep -q virtqemud.socket; then
-          sudo systemctl enable virtqemud.socket
-          sudo systemctl start virtqemud.socket
+        UBUNTU_VERSION=$(lsb_release -rs)
+        echo "Detected Ubuntu version: $UBUNTU_VERSION"
+        if [[ "$UBUNTU_VERSION" == "22.04" ]]; then
+          echo "Installing specific dependencies for Ubuntu 22.04"
+          sudo apt-get install -y qemu
+        elif [[ "$UBUNTU_VERSION" == "24.04" ]]; then
+          echo "Installing specific dependencies for Ubuntu 24.04"
+          sudo apt-get update
+          sudo apt-get install -y virtiofsd libvirt-daemon-system libvirt-daemon-driver-qemu
+          if systemctl list-unit-files | grep -q virtqemud.socket; then
+            sudo systemctl enable virtqemud.socket
+            sudo systemctl start virtqemud.socket
+          else
+            echo "virtqemud.socket unit file does not exist. Skipping enable/start steps."
+          fi
+        elif [[ "$UBUNTU_VERSION" == "20.04" ]]; then
+          echo "Upgrading packages for Ubuntu 20.04"
+          sudo apt-get upgrade -y
         else
-          echo "virtqemud.socket unit file does not exist. Skipping enable/start steps."
+          echo "No specific dependencies for Ubuntu version $UBUNTU_VERSION"
         fi
 
     - name: Enable KVM group perms
@@ -120,12 +120,6 @@ runs:
         sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system-x86
         sudo usermod -a -G kvm,libvirt $USER
         sudo adduser `id -un` libvirt
-
-    - name: Ubuntu 20.04 Specific
-      if: ${{ matrix.os == 'ubuntu-20.04' }}
-      shell: bash
-      run: |
-        sudo apt-get upgrade -y
 
     # If there is no /etc/docker/daemon.json, create it.
     - name: Create /etc/docker/daemon.json
