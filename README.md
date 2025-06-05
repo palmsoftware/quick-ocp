@@ -47,7 +47,6 @@ with:
 ```
 
 - The default is `latest`, which will use the most recent supported version.  If you leave `desiredOCPVersion` blank, you will get the latest version.
-- Supported values are `4.14`, `4.16`, `4.17`, `4.18`, and any other version supported by the CRC project and this action.
-- **Note:** OpenShift 4.15 is not supported due to known compatibility issues with modern runners and will be blocked by this action.
+- Supported values are `4.17`, `4.18`, and `latest`.
 
 For more details, see the [action.yml](action.yml) and workflow examples.

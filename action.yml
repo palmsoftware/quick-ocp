@@ -44,15 +44,16 @@ runs:
         if [ "${{ inputs.desiredOCPVersion }}" = "latest" ]; then
           echo "crc_version=latest" | tee "$GITHUB_OUTPUT"
         else
-          if [ "${{ inputs.desiredOCPVersion }}" = "4.15" ]; then
-            echo "[ERROR] OpenShift version 4.15 is not supported in this action due to known compatibility issues with modern runners." >&2
+          # Only allow OCP versions 4.17 and above
+          if [[ ! "${{ inputs.desiredOCPVersion }}" =~ ^4\.(1[7-9]|[2-9][0-9])$ ]] && [[ "${{ inputs.desiredOCPVersion }}" != "latest" ]]; then
+            echo "[ERROR] Only OpenShift versions 4.17 and above are supported in this action." >&2
             exit 1
           fi
           CRC_VERSION=$("${{ github.action_path }}/scripts/fetch-ocp-crc-version.sh" "${{ inputs.desiredOCPVersion }}")
           if [[ $CRC_VERSION == No* ]]; then
             echo "[ERROR] The requested OpenShift version (${{ inputs.desiredOCPVersion }}) is not supported or no matching CRC release was found." >&2
             echo "Details: $CRC_VERSION" >&2
-            echo "Please choose a supported OCP version (e.g., 4.10 or above, except 4.15) or check https://github.com/crc-org/crc/releases for available versions." >&2
+            echo "Please choose a supported OCP version (e.g., 4.17 or above) or check https://github.com/crc-org/crc/releases for available versions." >&2
             exit 1
           fi
           echo "crc_version=$CRC_VERSION" | tee "$GITHUB_OUTPUT"
@@ -241,6 +242,13 @@ runs:
       run: |
         sudo ${{ github.action_path }}/scripts/install-oc-tools.sh --latest ${{ steps.ocp_version_lookup.outputs.ocp_version }}
 
+    - name: Scale down OpenShift Console components to save CPU
+      shell: bash
+      run: |
+        oc scale --replicas=0 deployment.apps/console -n openshift-console || true
+        oc scale --replicas=0 deployment.apps/downloads -n openshift-console || true
+        oc scale --replicas=0 deployment.apps/console-operator -n openshift-console || true
+    
     - name: Wait until node is Ready state
       shell: bash
       run: |
