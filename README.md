@@ -36,3 +36,18 @@ This is development only environment that is provided by Red Hat that will allow
 ## References
 
 - [install-oc-tools.sh](./scripts/install-oc-tools.sh) was a script copied from [install-oc-tools](https://github.com/cptmorgan-rh/install-oc-tools) and slightly modified for `aarch64`.
+
+## OpenShift Version Selection
+
+You can control which OpenShift version is deployed by setting the `desiredOCPVersion` input variable. For example:
+
+```yaml
+with:
+  desiredOCPVersion: 4.18
+```
+
+- The default is `latest`, which will use the most recent supported version.  If you leave `desiredOCPVersion` blank, you will get the latest version.
+- Supported values are `4.14`, `4.16`, `4.17`, `4.18`, and any other version supported by the CRC project and this action.
+- **Note:** OpenShift 4.15 is not supported due to known compatibility issues with modern runners and will be blocked by this action.
+
+For more details, see the [action.yml](action.yml) and workflow examples.

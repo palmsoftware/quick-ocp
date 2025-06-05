@@ -13,6 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, ubuntu-22.04]
+        ocp: [4.14, 4.16, 4.17, 4.18, latest]
     runs-on: ${{ matrix.os }}
     env:
       SHELL: /bin/bash
@@ -31,5 +32,6 @@ jobs:
         with:
           ocpPullSecret: $OCP_PULL_SECRET
           bundleCache: true
+          desiredOCPVersion: ${{ matrix.ocp }}
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
