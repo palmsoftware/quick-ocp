@@ -28,14 +28,41 @@ inputs:
     description: 'Wait for all operators to be ready'
     required: false
     default: 'false'
+  desiredOCPVersion:
+    description: 'OpenShift version to deploy'
+    required: false
+    default: 'latest'
 
 runs:
   using: 'composite'
   steps:
+
+    - name: Set CRC version variable
+      id: set_crc_version
+      shell: bash
+      run: |
+        if [ "${{ inputs.desiredOCPVersion }}" = "latest" ]; then
+          echo "crc_version=latest" | tee "$GITHUB_OUTPUT"
+        else
+          # Only allow OCP versions 4.17 and above
+          if [[ ! "${{ inputs.desiredOCPVersion }}" =~ ^4\.(1[7-9]|[2-9][0-9])$ ]] && [[ "${{ inputs.desiredOCPVersion }}" != "latest" ]]; then
+            echo "[ERROR] Only OpenShift versions 4.17 and above are supported in this action." >&2
+            exit 1
+          fi
+          CRC_VERSION=$("${{ github.action_path }}/scripts/fetch-ocp-crc-version.sh" "${{ inputs.desiredOCPVersion }}")
+          if [[ $CRC_VERSION == No* ]]; then
+            echo "[ERROR] The requested OpenShift version (${{ inputs.desiredOCPVersion }}) is not supported or no matching CRC release was found." >&2
+            echo "Details: $CRC_VERSION" >&2
+            echo "Please choose a supported OCP version (e.g., 4.17 or above) or check https://github.com/crc-org/crc/releases for available versions." >&2
+            exit 1
+          fi
+          echo "crc_version=$CRC_VERSION" | tee "$GITHUB_OUTPUT"
+        fi
+
     - name: Download and Install OpenShift Local Binary
       shell: bash
       run: |
-        curl -L -o crc.tar.xz https://mirror.openshift.com/pub/openshift-v4/clients/crc/latest/crc-linux-amd64.tar.xz
+        curl -L -o crc.tar.xz "https://mirror.openshift.com/pub/openshift-v4/clients/crc/${{ steps.set_crc_version.outputs.crc_version }}/crc-linux-amd64.tar.xz"
         tar -xvf crc.tar.xz
         sudo mv crc-linux-*/crc /usr/local/bin
 
@@ -209,6 +236,13 @@ runs:
       run: |
         sudo ${{ github.action_path }}/scripts/install-oc-tools.sh --latest ${{ steps.ocp_version_lookup.outputs.ocp_version }}
 
+    - name: Scale down OpenShift Console components to save CPU
+      shell: bash
+      run: |
+        oc scale --replicas=0 deployment.apps/console -n openshift-console || true
+        oc scale --replicas=0 deployment.apps/downloads -n openshift-console || true
+        oc scale --replicas=0 deployment.apps/console-operator -n openshift-console || true
+    
     - name: Wait until node is Ready state
       shell: bash
       run: |
