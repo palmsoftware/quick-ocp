@@ -19,18 +19,32 @@ fi
 # Retry curl up to 10 times with 3s delay
 RETRIES=10
 for i in $(seq 1 $RETRIES); do
-  RESPONSE=$(curl -s "$GITHUB_API")
-  if [ -n "$RESPONSE" ] && [ "$RESPONSE" != "null" ]; then
+  RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" "$GITHUB_API")
+  # Check if response is valid JSON and not empty
+  if [ -n "$RESPONSE" ] && echo "$RESPONSE" | jq empty >/dev/null 2>&1; then
     break
   fi
+  echo "Attempt $i failed. Response: ${RESPONSE:0:100}..." >&2
   if [ "$i" -eq "$RETRIES" ]; then
-    echo "Error: Failed to fetch CRC releases from GitHub API after $RETRIES attempts." >&2
-    exit 3
+    echo "Error: Failed to fetch valid JSON from CRC releases after $RETRIES attempts." >&2
+    echo "Last response was: $RESPONSE" >&2
+    echo "Falling back to 'latest' CRC version..." >&2
+    echo "latest"
+    exit 0
   fi
   sleep 3
 done
 
-echo "$RESPONSE" | jq -r --arg OCP_MINOR "$OCP_VERSION" '
+# Verify we have valid JSON before proceeding
+if ! echo "$RESPONSE" | jq empty >/dev/null 2>&1; then
+  echo "Error: Invalid JSON response from GitHub API" >&2
+  echo "Response: $RESPONSE" >&2
+  echo "Falling back to 'latest' CRC version..." >&2
+  echo "latest"
+  exit 0
+fi
+
+RESULT=$(echo "$RESPONSE" | jq -r --arg OCP_MINOR "$OCP_VERSION" '
   [
     .[] 
     | {
@@ -61,4 +75,14 @@ echo "$RESPONSE" | jq -r --arg OCP_MINOR "$OCP_VERSION" '
     else
       (.tag | sub("^v"; ""))
     end
-'
+' 2>/dev/null)
+
+# Check if jq command failed
+if [ $? -ne 0 ] || [ -z "$RESULT" ]; then
+  echo "Error: Failed to parse JSON response with jq" >&2
+  echo "Falling back to 'latest' CRC version..." >&2
+  echo "latest"
+  exit 0
+fi
+
+echo "$RESULT"

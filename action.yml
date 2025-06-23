@@ -41,6 +41,7 @@ runs:
       id: set_crc_version
       shell: bash
       run: |
+        echo "Desired OCP Version: ${{ inputs.desiredOCPVersion }}"
         if [ "${{ inputs.desiredOCPVersion }}" = "latest" ]; then
           echo "crc_version=latest" | tee "$GITHUB_OUTPUT"
         else
@@ -49,12 +50,18 @@ runs:
             echo "[ERROR] Only OpenShift versions 4.17 and above are supported in this action." >&2
             exit 1
           fi
+          echo "Fetching CRC version for OCP ${{ inputs.desiredOCPVersion }}..."
           CRC_VERSION=$("${{ github.action_path }}/scripts/fetch-ocp-crc-version.sh" "${{ inputs.desiredOCPVersion }}")
-          if [[ $CRC_VERSION == No* ]]; then
+          echo "Script returned: $CRC_VERSION"
+          if [[ $CRC_VERSION == No* ]] || [[ $CRC_VERSION == Error* ]]; then
             echo "[ERROR] The requested OpenShift version (${{ inputs.desiredOCPVersion }}) is not supported or no matching CRC release was found." >&2
             echo "Details: $CRC_VERSION" >&2
             echo "Please choose a supported OCP version (e.g., 4.17 or above) or check https://github.com/crc-org/crc/releases for available versions." >&2
             exit 1
+          fi
+          # If script returns 'latest' due to API issues, use latest
+          if [[ $CRC_VERSION == "latest" ]]; then
+            echo "Using latest CRC version due to API fallback"
           fi
           echo "crc_version=$CRC_VERSION" | tee "$GITHUB_OUTPUT"
         fi
@@ -236,20 +243,28 @@ runs:
       run: |
         sudo ${{ github.action_path }}/scripts/install-oc-tools.sh --latest ${{ steps.ocp_version_lookup.outputs.ocp_version }}
 
+    - name: Wait until node is Ready state
+      shell: bash
+      run: |
+        # Wait for cluster to be ready and accessible
+        echo "Waiting for cluster to be accessible..."
+        while ! oc get nodes --request-timeout='30s' &>/dev/null; do
+          echo "Cluster not yet accessible, waiting..."
+          sleep 10
+        done
+        
+        # Wait for the node to be in Ready state
+        while [[ $(oc get nodes --request-timeout='30s' -o json | jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status') == "False" ]]; do
+          echo "Waiting for node to be in Ready state"
+          sleep 5
+        done
+
     - name: Scale down OpenShift Console components to save CPU
       shell: bash
       run: |
         oc scale --replicas=0 deployment.apps/console -n openshift-console || true
         oc scale --replicas=0 deployment.apps/downloads -n openshift-console || true
         oc scale --replicas=0 deployment.apps/console-operator -n openshift-console || true
-    
-    - name: Wait until node is Ready state
-      shell: bash
-      run: |
-        while [[ $(oc get nodes --request-timeout='30s' -o json | jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status') == "False" ]]; do
-          echo "Waiting for node to be in Ready state"
-          sleep 5
-        done
 
     - name: Set the adm policy
       shell: bash
