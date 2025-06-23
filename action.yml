@@ -71,7 +71,12 @@ runs:
       run: |
         curl -L -o crc.tar.xz "https://mirror.openshift.com/pub/openshift-v4/clients/crc/${{ steps.set_crc_version.outputs.crc_version }}/crc-linux-amd64.tar.xz"
         tar -xvf crc.tar.xz
-        sudo mv crc-linux-*/crc /usr/local/bin
+        if [ -d crc-linux-* ] && [ -f crc-linux-*/crc ]; then
+          sudo mv crc-linux-*/crc /usr/local/bin
+        else
+          echo "Error: CRC binary not found in extracted archive"
+          exit 1
+        fi
 
     - name: CRC version lookup from crc
       shell: bash
@@ -105,7 +110,11 @@ runs:
       shell: bash
       run: |
         mkdir -p /home/runner/.crc/cache
-        cp -r /home/runner/.crc/bundletmp/* /home/runner/.crc/cache/
+        if [ -d "/home/runner/.crc/bundletmp" ] && [ "$(ls -A /home/runner/.crc/bundletmp 2>/dev/null)" ]; then
+          cp -r /home/runner/.crc/bundletmp/* /home/runner/.crc/cache/
+        else
+          echo "No files found in bundletmp to copy or directory does not exist"
+        fi
 
     - name: Free Disk Space (Ubuntu)
       uses: jlumbroso/free-disk-space@main
@@ -153,7 +162,11 @@ runs:
         sudo apt-get update
         sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system-x86
         sudo usermod -a -G kvm,libvirt $USER
-        sudo adduser `id -un` libvirt
+        if ! groups $USER | grep -q libvirt; then
+          sudo adduser `id -un` libvirt
+        else
+          echo "User already in libvirt group"
+        fi
 
     # If there is no /etc/docker/daemon.json, create it.
     - name: Create /etc/docker/daemon.json
@@ -171,11 +184,16 @@ runs:
       run: |
         df -h
         lsblk
-        sudo mkdir /mnt/docker-storage
+        sudo mkdir -p /mnt/docker-storage
         sudo jq '.  +={"data-root" : "/mnt/docker-storage"}' < /etc/docker/daemon.json > /tmp/docker-daemon.json
         sudo cp /tmp/docker-daemon.json /etc/docker/daemon.json
         cat /etc/docker/daemon.json
-        sudo systemctl restart docker
+        if systemctl is-active --quiet docker; then
+          sudo systemctl restart docker
+        else
+          echo "Docker service is not active, attempting to start it"
+          sudo systemctl start docker || echo "Failed to start docker service"
+        fi
         sudo ls -la /mnt/docker-storage
 
     - name: reload the terminal to load the libvirt group
@@ -187,7 +205,12 @@ runs:
       shell: bash
       run: |
         groups
-        sudo usermod -a -G libvirt $USER
+        if ! groups $USER | grep -q libvirt; then
+          sudo usermod -a -G libvirt $USER
+          echo "Added user to libvirt group"
+        else
+          echo "User already in libvirt group"
+        fi
         groups
       
     - name: Write the pull secret to json file
@@ -219,7 +242,11 @@ runs:
       shell: bash
       run: |
         mkdir -p /home/runner/.crc/bundletmp
-        mv /home/runner/.crc/cache/*.crcbundle /home/runner/.crc/bundletmp/
+        if [ -n "$(ls /home/runner/.crc/cache/*.crcbundle 2>/dev/null)" ]; then
+          mv /home/runner/.crc/cache/*.crcbundle /home/runner/.crc/bundletmp/
+        else
+          echo "No .crcbundle files found to move"
+        fi
 
     - name: Cache the crc bundles using github actions cache
       uses: actions/cache/save@v4
