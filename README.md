@@ -49,4 +49,30 @@ with:
 - The default is `latest`, which will use the most recent supported version.  If you leave `desiredOCPVersion` blank, you will get the latest version.
 - Supported values are `4.17`, `4.18`, and `latest`.
 
+## Free Tier Runner Optimizations
+
+This action includes several optimizations specifically designed for GitHub's free tier runners (ubuntu-latest with ~7GB RAM and ~14GB disk):
+
+### Disk Space Management
+- **Aggressive cleanup**: Removes unnecessary packages, documentation, logs, and temporary files
+- **Docker storage optimization**: Moves Docker to secondary storage (`/mnt`)
+- **CRC bundle caching**: Caches OpenShift bundles between runs to avoid re-downloading
+- **Component scaling**: Automatically scales down non-essential OpenShift components
+
+### Configuration Options
+```yaml
+with:
+  aggressiveCleanup: 'true'  # Enable aggressive disk cleanup (default: true)
+  crcMemory: '10752'         # Memory allocation in MB (default: 10752)
+  crcCpu: '4'               # CPU allocation (default: 4)
+  crcDiskSize: '35'         # Disk size in GB (default: 35)
+  bundleCache: 'true'       # Cache CRC bundles for faster subsequent runs
+```
+
+### Resource Usage
+With these optimizations, the action typically uses:
+- ~6-8GB RAM during startup, ~4-6GB steady state
+- ~8-12GB disk space (including OS overhead)
+- Most of the available CPU during cluster startup
+
 For more details, see the [action.yml](action.yml) and workflow examples.

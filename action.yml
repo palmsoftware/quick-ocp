@@ -32,6 +32,10 @@ inputs:
     description: 'OpenShift version to deploy'
     required: false
     default: 'latest'
+  aggressiveCleanup:
+    description: 'Enable aggressive disk cleanup for free tier runners'
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
@@ -77,6 +81,9 @@ runs:
           echo "Error: CRC binary not found in extracted archive"
           exit 1
         fi
+        # Clean up downloaded and extracted files immediately
+        rm -rf crc.tar.xz crc-linux-*
+        echo "Cleaned up CRC installation files"
 
     - name: CRC version lookup from crc
       shell: bash
@@ -311,6 +318,28 @@ runs:
           echo "console-operator deployment not found in openshift-console or openshift-console-operator namespaces"
         fi
 
+    - name: Scale down additional non-essential OpenShift components
+      if: ${{ inputs.aggressiveCleanup == 'true' }}
+      shell: bash
+      run: |
+        echo "Scaling down additional components to save resources..."
+        
+        # Scale down monitoring components (can be resource intensive)
+        oc scale --replicas=0 deployment.apps/prometheus-operator -n openshift-monitoring || true
+        oc scale --replicas=0 deployment.apps/grafana -n openshift-monitoring || true
+        oc scale --replicas=0 statefulset.apps/prometheus-k8s -n openshift-monitoring || true
+        oc scale --replicas=0 statefulset.apps/alertmanager-main -n openshift-monitoring || true
+        
+        # Scale down image registry if not needed
+        oc scale --replicas=0 deployment.apps/image-registry -n openshift-image-registry || true
+        oc scale --replicas=0 deployment.apps/cluster-image-registry-operator -n openshift-image-registry || true
+        
+        # Scale down samples operator
+        oc scale --replicas=0 deployment.apps/cluster-samples-operator -n openshift-cluster-samples-operator || true
+        
+        echo "Completed scaling down additional components"
+      continue-on-error: true
+
     - name: Set the adm policy
       shell: bash
       run: |
@@ -321,3 +350,36 @@ runs:
       if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-operators.sh
+
+    - name: Final cleanup and disk optimization
+      shell: bash
+      run: |
+        echo "=== Final cleanup and optimization ==="
+        
+        # Remove any core dumps
+        sudo rm -f /core* || true
+        sudo rm -f /var/crash/* || true
+        
+        # Clear systemd logs older than 1 hour
+        sudo journalctl --vacuum-time=1h || true
+        
+        # Remove any temporary CRC files that might be left
+        rm -rf /tmp/crc-* || true
+        rm -rf /home/runner/.crc/logs/* || true
+        
+        # Clean up Docker if it's running
+        if command -v docker &> /dev/null && docker info &> /dev/null; then
+          # Remove unused containers, networks, images, and build cache
+          docker system prune -a -f || true
+          # Remove volumes (be careful with this in production!)
+          docker volume prune -f || true
+        fi
+        
+        # Show final disk usage
+        echo "=== Final disk usage ==="
+        df -h
+        echo "=== Memory usage ==="
+        free -h
+        echo "=== CRC status ==="
+        crc status || true
+      continue-on-error: true
