@@ -19,7 +19,7 @@ inputs:
   crcDiskSize:
     description: 'Disk size for OpenShift Local'
     required: false
-    default: '35'
+    default: '31'
   bundleCache:
     description: 'Cache the crc bundles for faster startup'
     required: false
