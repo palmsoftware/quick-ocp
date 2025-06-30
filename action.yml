@@ -77,6 +77,10 @@ runs:
           echo "Error: CRC binary not found in extracted archive"
           exit 1
         fi
+        # Clean up immediately after extraction
+        rm -rf crc.tar.xz crc-linux-*
+        echo "=== Disk usage after CRC download ==="
+        df -h
 
     - name: CRC version lookup from crc
       shell: bash
@@ -115,6 +119,40 @@ runs:
         else
           echo "No files found in bundletmp to copy or directory does not exist"
         fi
+
+    - name: Setup CRC cache directory on larger disk
+      shell: bash
+      run: |
+        echo "=== Setting up CRC cache on larger disk partition ==="
+        # Create CRC cache directory on /mnt (larger disk)
+        sudo mkdir -p /mnt/crc-cache
+        sudo chown -R runner:runner /mnt/crc-cache
+        
+        # Create symlink from default CRC cache location to /mnt
+        mkdir -p /home/runner/.crc
+        if [ ! -L "/home/runner/.crc/cache" ]; then
+          # If cache directory exists, move it first
+          if [ -d "/home/runner/.crc/cache" ]; then
+            mv /home/runner/.crc/cache/* /mnt/crc-cache/ 2>/dev/null || true
+            rm -rf /home/runner/.crc/cache
+          fi
+          ln -sf /mnt/crc-cache /home/runner/.crc/cache
+        fi
+        
+        # Also setup the machines directory on larger disk
+        sudo mkdir -p /mnt/crc-machines
+        sudo chown -R runner:runner /mnt/crc-machines
+        if [ ! -L "/home/runner/.crc/machines" ]; then
+          if [ -d "/home/runner/.crc/machines" ]; then
+            mv /home/runner/.crc/machines/* /mnt/crc-machines/ 2>/dev/null || true
+            rm -rf /home/runner/.crc/machines
+          fi
+          ln -sf /mnt/crc-machines /home/runner/.crc/machines
+        fi
+        
+        echo "=== CRC directories moved to larger disk ==="
+        ls -la /home/runner/.crc/
+        df -h
 
     - name: Free Disk Space (Ubuntu)
       uses: jlumbroso/free-disk-space@main
@@ -182,19 +220,33 @@ runs:
     - name: Make docker to use /mnt (sdb) for storage
       shell: bash
       run: |
+        echo "=== Before docker storage move ==="
         df -h
         lsblk
+        
+        # Stop docker before moving storage
+        sudo systemctl stop docker || true
+        
+        # Create mount point and move docker data
         sudo mkdir -p /mnt/docker-storage
+        
+        # If docker data exists, move it
+        if [ -d "/var/lib/docker" ] && [ "$(ls -A /var/lib/docker 2>/dev/null)" ]; then
+          echo "Moving existing docker data to /mnt/docker-storage"
+          sudo mv /var/lib/docker/* /mnt/docker-storage/ || true
+        fi
+        
+        # Configure docker to use new location
         sudo jq '.  +={"data-root" : "/mnt/docker-storage"}' < /etc/docker/daemon.json > /tmp/docker-daemon.json
         sudo cp /tmp/docker-daemon.json /etc/docker/daemon.json
         cat /etc/docker/daemon.json
-        if systemctl is-active --quiet docker; then
-          sudo systemctl restart docker
-        else
-          echo "Docker service is not active, attempting to start it"
-          sudo systemctl start docker || echo "Failed to start docker service"
-        fi
+        
+        # Start docker
+        sudo systemctl start docker
         sudo ls -la /mnt/docker-storage
+        
+        echo "=== After docker storage move ==="
+        df -h
 
     - name: reload the terminal to load the libvirt group
       shell: bash
@@ -217,7 +269,7 @@ runs:
       shell: bash
       run: |
         echo ${{ inputs.ocpPullSecret }} > pull-secret.json
-
+        
     - name: Prompt the user if bundleCache is false
       if: ${{ inputs.bundleCache == false }}
       shell: bash
@@ -226,6 +278,7 @@ runs:
     - name: Start OpenShift Local
       shell: bash
       run: |
+        echo "=== Configuring CRC for minimal resource usage ==="
         crc config set cpus ${{ inputs.crcCpu }}
         crc config set memory ${{ inputs.crcMemory }}
         crc config set disk-size ${{ inputs.crcDiskSize }}
@@ -235,18 +288,35 @@ runs:
     - name: Run setup
       shell: bash
       run: |
+        echo "=== Running CRC setup ==="
         sudo -su $USER crc setup --log-level debug --show-progressbars
+        
+        echo "=== Disk usage after CRC setup ==="
+        df -h
+        
+        echo "=== Starting CRC ==="
         sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug
+        
+        # Clean up pull secret immediately after use
+        rm -f pull-secret.json
+        
+        echo "=== Disk usage after CRC start ==="
+        df -h
 
     - name: Move the .crcbundle files to another temporary folder
       shell: bash
       run: |
+        echo "=== Moving CRC bundles for caching ==="
         mkdir -p /home/runner/.crc/bundletmp
         if [ -n "$(ls /home/runner/.crc/cache/*.crcbundle 2>/dev/null)" ]; then
           mv /home/runner/.crc/cache/*.crcbundle /home/runner/.crc/bundletmp/
+          echo "Moved $(ls /home/runner/.crc/bundletmp/*.crcbundle | wc -l) bundle files"
         else
           echo "No .crcbundle files found to move"
         fi
+        
+        echo "=== Disk usage after bundle move ==="
+        df -h
 
     - name: Cache the crc bundles using github actions cache
       uses: actions/cache/save@v4
@@ -255,20 +325,61 @@ runs:
         path: /home/runner/.crc/bundletmp
         key: ${{ steps.restore-cache.outputs.cache-primary-key }}
 
-    - name: Remove the bundle to save space
+    - name: Aggressive cleanup after CRC start
       shell: bash
       run: |
+        echo "=== Cleaning up unnecessary files after CRC start ==="
+        
+        # Remove bundle files to save space
         rm -rf /home/runner/.crc/bundletmp
+        
+        # Clean up any leftover archives and temp files
+        find /tmp -name "*.tar*" -o -name "*.zip" -o -name "*.gz" -exec rm -f {} \; 2>/dev/null || true
+        find /var/tmp -name "*.tar*" -o -name "*.zip" -o -name "*.gz" -exec rm -f {} \; 2>/dev/null || true
+        
+        # Clean package manager cache again
+        sudo apt-get clean
+        sudo apt-get autoremove --purge -y
+        
+        # Clean Docker again
+        docker system prune -f --volumes || true
+        
+        echo "=== Disk usage after aggressive cleanup ==="
+        df -h
+      continue-on-error: true
 
     - name: Print the disk statistics
       shell: bash
       run: |
+        echo "=== Final disk usage statistics ==="
         df -h
+        echo "=== Disk usage by directory (top 10) ==="
+        sudo du -h --max-depth=1 / 2>/dev/null | sort -hr | head -10 || true
+        echo "=== CRC-specific disk usage ==="
+        du -h /home/runner/.crc/ 2>/dev/null || echo "CRC directory not found"
+        du -h /mnt/crc-* 2>/dev/null || echo "CRC mnt directories not found"
+        echo "=== Available space check ==="
+        AVAILABLE_GB=$(df --output=avail -BG / | tail -1 | tr -d 'G ')
+        echo "Available space: ${AVAILABLE_GB}GB"
+        if [ "$AVAILABLE_GB" -lt 2 ]; then
+          echo "WARNING: Less than 2GB available space remaining!"
+        fi
 
     - name: Bootstrap the runner with kubectl and oc clients
       shell: bash
       run: |
+        echo "=== Installing OpenShift CLI tools ==="
+        echo "Disk usage before tool installation:"
+        df -h
+        
         sudo ${{ github.action_path }}/scripts/install-oc-tools.sh --latest ${{ steps.ocp_version_lookup.outputs.ocp_version }}
+        
+        echo "=== Cleaning up after tool installation ==="
+        # Clean up any downloaded archives
+        sudo rm -rf /tmp/openshift-* /tmp/oc-* /tmp/kubectl-* 2>/dev/null || true
+        
+        echo "Disk usage after tool installation and cleanup:"
+        df -h
 
     - name: Wait until node is Ready state
       shell: bash
@@ -289,15 +400,19 @@ runs:
     - name: Scale down OpenShift Console components to save CPU
       shell: bash
       run: |
+        echo "=== Scaling down non-essential OpenShift components ==="
+        
         # Scale down console deployments if they exist
         if oc get deployment.apps/console -n openshift-console &>/dev/null; then
           oc scale --replicas=0 deployment.apps/console -n openshift-console || true
+          echo "Scaled down console deployment"
         else
           echo "console deployment not found in openshift-console namespace"
         fi
         
         if oc get deployment.apps/downloads -n openshift-console &>/dev/null; then
           oc scale --replicas=0 deployment.apps/downloads -n openshift-console || true
+          echo "Scaled down downloads deployment"
         else
           echo "downloads deployment not found in openshift-console namespace"
         fi
@@ -305,11 +420,15 @@ runs:
         # Check for console-operator in multiple possible namespaces
         if oc get deployment.apps/console-operator -n openshift-console &>/dev/null; then
           oc scale --replicas=0 deployment.apps/console-operator -n openshift-console || true
+          echo "Scaled down console-operator in openshift-console"
         elif oc get deployment.apps/console-operator -n openshift-console-operator &>/dev/null; then
           oc scale --replicas=0 deployment.apps/console-operator -n openshift-console-operator || true
+          echo "Scaled down console-operator in openshift-console-operator"
         else
           echo "console-operator deployment not found in openshift-console or openshift-console-operator namespaces"
         fi
+        
+        echo "=== Resource scaling completed ==="
 
     - name: Set the adm policy
       shell: bash
@@ -321,3 +440,90 @@ runs:
       if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-operators.sh
+
+    - name: Comprehensive Disk Space Report
+      shell: bash
+      run: |
+        echo "=================================="
+        echo "  FINAL DISK SPACE ANALYSIS"
+        echo "=================================="
+        
+        echo ""
+        echo "=== Overall Disk Usage ==="
+        df -h
+        
+        echo ""
+        echo "=== Disk Usage by Mount Point ==="
+        df -h | awk 'NR==1{print $0" MOUNT"} NR>1{print $0" "$6}' | column -t
+        
+        echo ""
+        echo "=== Top 20 Largest Directories ==="
+        echo "Analyzing disk usage by directory (this may take a moment)..."
+        sudo du -h --max-depth=2 / 2>/dev/null | grep -E '^[0-9.]+[GM]' | sort -hr | head -20 || true
+        
+        echo ""
+        echo "=== CRC-Specific Disk Usage ==="
+        if [ -d "/home/runner/.crc" ]; then
+          echo "CRC home directory:"
+          du -sh /home/runner/.crc/ 2>/dev/null || echo "Could not analyze CRC home directory"
+          echo "CRC symlinks:"
+          ls -la /home/runner/.crc/ 2>/dev/null || echo "Could not list CRC directory"
+        fi
+        
+        if [ -d "/mnt/crc-cache" ]; then
+          echo "CRC cache on /mnt:"
+          du -sh /mnt/crc-cache/ 2>/dev/null || echo "Could not analyze CRC cache"
+        fi
+        
+        if [ -d "/mnt/crc-machines" ]; then
+          echo "CRC machines on /mnt:"
+          du -sh /mnt/crc-machines/ 2>/dev/null || echo "Could not analyze CRC machines"
+        fi
+        
+        echo ""
+        echo "=== Docker Storage Usage ==="
+        if [ -d "/mnt/docker-storage" ]; then
+          echo "Docker storage on /mnt:"
+          du -sh /mnt/docker-storage/ 2>/dev/null || echo "Could not analyze Docker storage"
+        fi
+        if [ -d "/var/lib/docker" ]; then
+          echo "Docker storage on root:"
+          du -sh /var/lib/docker/ 2>/dev/null || echo "Could not analyze Docker root storage"
+        fi
+        
+        echo ""
+        echo "=== Available Space Summary ==="
+        ROOT_AVAIL=$(df --output=avail -BG / | tail -1 | tr -d 'G ')
+        MNT_AVAIL=$(df --output=avail -BG /mnt 2>/dev/null | tail -1 | tr -d 'G ' || echo "0")
+        
+        echo "Root partition (/) available space: ${ROOT_AVAIL}GB"
+        echo "Mount partition (/mnt) available space: ${MNT_AVAIL}GB"
+        echo "Total available space: $((ROOT_AVAIL + MNT_AVAIL))GB"
+        
+        echo ""
+        echo "=== Space Warnings ==="
+        if [ "$ROOT_AVAIL" -lt 2 ]; then
+          echo "⚠️  WARNING: Root partition has less than 2GB available!"
+        elif [ "$ROOT_AVAIL" -lt 5 ]; then
+          echo "⚠️  CAUTION: Root partition has less than 5GB available"
+        else
+          echo "✅ Root partition space looks good"
+        fi
+        
+        if [ "$MNT_AVAIL" -lt 2 ]; then
+          echo "⚠️  WARNING: Mount partition has less than 2GB available!"
+        elif [ "$MNT_AVAIL" -lt 10 ]; then
+          echo "⚠️  CAUTION: Mount partition has less than 10GB available"
+        else
+          echo "✅ Mount partition space looks good"
+        fi
+        
+        echo ""
+        echo "=== Largest Files (top 10) ==="
+        find / -type f -size +100M 2>/dev/null | head -10 | xargs -I {} sh -c 'echo "$(du -h "{}" 2>/dev/null | cut -f1) {}"' 2>/dev/null || echo "Could not analyze large files"
+        
+        echo ""
+        echo "=================================="
+        echo "  END OF DISK SPACE ANALYSIS"
+        echo "=================================="
+      continue-on-error: true
