@@ -28,6 +28,10 @@ inputs:
     description: 'Wait for all operators to be ready'
     required: false
     default: 'false'
+  waitForPodsReady:
+    description: 'Wait for all pods to be ready'
+    required: false
+    default: 'false'
   desiredOCPVersion:
     description: 'OpenShift version to deploy'
     required: false
@@ -397,36 +401,113 @@ runs:
           sleep 5
         done
 
-    - name: Scale down OpenShift Console components to save CPU
+    - name: Scale down non-essential OpenShift components to save CPU
       shell: bash
       run: |
         echo "=== Scaling down non-essential OpenShift components ==="
         
         # Scale down console deployments if they exist
-        if oc get deployment.apps/console -n openshift-console &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/console -n openshift-console || true
+        if oc get deployment/console -n openshift-console &>/dev/null; then
+          oc scale --replicas=0 deployment/console -n openshift-console || true
           echo "Scaled down console deployment"
         else
           echo "console deployment not found in openshift-console namespace"
         fi
         
-        if oc get deployment.apps/downloads -n openshift-console &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/downloads -n openshift-console || true
+        if oc get deployment/downloads -n openshift-console &>/dev/null; then
+          oc scale --replicas=0 deployment/downloads -n openshift-console || true
           echo "Scaled down downloads deployment"
         else
           echo "downloads deployment not found in openshift-console namespace"
         fi
         
         # Check for console-operator in multiple possible namespaces
-        if oc get deployment.apps/console-operator -n openshift-console &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/console-operator -n openshift-console || true
+        if oc get deployment/console-operator -n openshift-console &>/dev/null; then
+          oc scale --replicas=0 deployment/console-operator -n openshift-console || true
           echo "Scaled down console-operator in openshift-console"
-        elif oc get deployment.apps/console-operator -n openshift-console-operator &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/console-operator -n openshift-console-operator || true
+        elif oc get deployment/console-operator -n openshift-console-operator &>/dev/null; then
+          oc scale --replicas=0 deployment/console-operator -n openshift-console-operator || true
           echo "Scaled down console-operator in openshift-console-operator"
         else
           echo "console-operator deployment not found in openshift-console or openshift-console-operator namespaces"
         fi
+        
+        # Disable network diagnostics at the operator level (more comprehensive than scaling individual components)
+        echo "Disabling network diagnostics via network operator configuration..."
+        oc patch networks.operator.openshift.io cluster --type=merge -p '{"spec":{"disableNetworkDiagnostics":true}}' || true
+        echo "Network diagnostics disabled at operator level"
+        
+        # Scale down cluster samples operator (manages sample apps/imagestreams)
+        if oc get deployment/cluster-samples-operator -n openshift-cluster-samples-operator &>/dev/null; then
+          oc scale --replicas=0 deployment/cluster-samples-operator -n openshift-cluster-samples-operator || true
+          echo "Scaled down cluster-samples-operator deployment"
+        else
+          echo "cluster-samples-operator deployment not found in openshift-cluster-samples-operator namespace"
+        fi
+        
+        # Scale down ingress canary (ingress testing/monitoring tool)
+        if oc get daemonset/ingress-canary -n openshift-ingress-canary &>/dev/null; then
+          oc patch daemonset/ingress-canary -n openshift-ingress-canary -p '{"spec":{"template":{"spec":{"nodeSelector":{"nonexistent-node":"true"}}}}}' || true
+          echo "Disabled ingress-canary daemonset"
+        else
+          echo "ingress-canary daemonset not found in openshift-ingress-canary namespace"
+        fi
+        
+        # Scale down network metrics daemon (collects network metrics for monitoring)
+        if oc get daemonset/network-metrics-daemon -n openshift-multus &>/dev/null; then
+          oc patch daemonset/network-metrics-daemon -n openshift-multus -p '{"spec":{"template":{"spec":{"nodeSelector":{"nonexistent-node":"true"}}}}}' || true
+          echo "Disabled network-metrics-daemon daemonset"
+        else
+          echo "network-metrics-daemon daemonset not found in openshift-multus namespace"
+        fi
+        
+        # Suspend non-essential cronjobs to save resources (wait script now ignores their pods)
+        if oc get cronjob/image-pruner -n openshift-image-registry &>/dev/null; then
+          oc patch cronjob/image-pruner -n openshift-image-registry -p '{"spec":{"suspend":true}}' || true
+          echo "Suspended image-pruner cronjob"
+        else
+          echo "image-pruner cronjob not found in openshift-image-registry namespace"
+        fi
+        
+        if oc get cronjob/collect-profiles -n openshift-operator-lifecycle-manager &>/dev/null; then
+          oc patch cronjob/collect-profiles -n openshift-operator-lifecycle-manager -p '{"spec":{"suspend":true}}' || true
+          echo "Suspended collect-profiles cronjob"
+        else
+          echo "collect-profiles cronjob not found in openshift-operator-lifecycle-manager namespace"
+        fi
+        
+        # Scale down storage version migrator (handles API migrations, not needed for CI/CD)
+        if oc get deployment/migrator -n openshift-kube-storage-version-migrator &>/dev/null; then
+          oc scale --replicas=0 deployment/migrator -n openshift-kube-storage-version-migrator || true
+          echo "Scaled down storage version migrator deployment"
+        else
+          echo "migrator deployment not found in openshift-kube-storage-version-migrator namespace"
+        fi
+        
+        # Scale down marketplace operator (manages OperatorHub, not needed for basic CI/CD)
+        if oc get deployment/marketplace-operator -n openshift-marketplace &>/dev/null; then
+          oc scale --replicas=0 deployment/marketplace-operator -n openshift-marketplace || true
+          echo "Scaled down marketplace-operator deployment"
+        else
+          echo "marketplace-operator deployment not found in openshift-marketplace namespace"
+        fi
+        
+        # Disable OperatorHub catalog sources to save significant resources (30m CPU, 190MB RAM)
+        echo "Disabling OperatorHub catalog sources..."
+        oc patch operatorhubs.config.openshift.io cluster --type=merge -p '{"spec":{"disableAllDefaultSources":true}}' || true
+        echo "OperatorHub catalog sources disabled"
+        
+        # Remove sample imagestreams and templates (saves memory and disk space)
+        echo "Removing sample imagestreams and templates..."
+        oc patch configs.samples.operator.openshift.io cluster --type=merge -p '{"spec":{"managementState":"Removed"}}' || true
+        echo "Sample content removed"
+        
+        # Set console to unmanaged to prevent recreation of scaled components
+        echo "Setting console operator to unmanaged..."
+        oc patch consoles.operator.openshift.io cluster --type=merge -p '{"spec":{"managementState":"Unmanaged"}}' || true
+        echo "Console operator set to unmanaged"
+        
+# Note: The wait-for-pods script now intelligently ignores non-essential pods like cronjob jobs
         
         echo "=== Resource scaling completed ==="
 
@@ -440,6 +521,13 @@ runs:
       if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-operators.sh
+
+    - name: Wait for essential pods to be ready
+      if: ${{ inputs.waitForPodsReady == 'true' }}
+      shell: bash
+      run: |
+        echo "Waiting for essential pods (ignoring cronjob pods and scaled-down components)..."
+        ${{ github.action_path }}/scripts/wait-for-pods.sh
 
     - name: Comprehensive Disk Space Report
       shell: bash

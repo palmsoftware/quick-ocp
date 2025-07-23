@@ -17,15 +17,55 @@ Basic Usage:
 
 You will need to supply your OCP Pull Secret as a Github Actions Secret.  Your pull secret can be acquired from [here](https://console.redhat.com/openshift/install/azure/aro-provisioned).  Click on "Download Pull Secret" and copy the contents into your secret.
 
-```
+```yaml
 steps:
   - name: Set up Quick-OCP
     uses: palmsoftware/quick-ocp@v0.0.16
     with:
-          ocpPullSecret: $OCP_PULL_SECRET
-        env:
-          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+      ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
 ```
+
+Advanced Usage with Pod Readiness Check:
+
+```yaml
+steps:
+  - name: Set up Quick-OCP
+    uses: palmsoftware/quick-ocp@v0.0.16
+    with:
+      ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
+      waitForPodsReady: 'true'
+      waitForOperatorsReady: 'true'
+      desiredOCPVersion: '4.18'
+```
+
+## Input Parameters
+
+| Parameter | Description | Required | Default |
+|-----------|-------------|----------|---------|
+| `ocpPullSecret` | Pull secret for OpenShift Local | Yes | - |
+| `waitForPodsReady` | Wait for essential pods to be ready before completing | No | `'false'` |
+| `waitForOperatorsReady` | Wait for all operators to be ready | No | `'false'` |
+| `desiredOCPVersion` | OpenShift version to deploy (4.17, 4.18, or latest) | No | `'latest'` |
+| `crcMemory` | Memory allocation for OpenShift Local (MB) | No | `'10752'` |
+| `crcCpu` | CPU allocation for OpenShift Local | No | `'4'` |
+| `crcDiskSize` | Disk size for OpenShift Local (GB) | No | `'31'` |
+| `bundleCache` | Cache the CRC bundles for faster startup | No | `'false'` |
+| `enableTelemetry` | Enable telemetry for OpenShift Local | No | `'yes'` |
+
+### waitForPodsReady
+
+When set to `'true'`, this option will make the action wait for **essential pods** to be in a ready state before completing. The wait script intelligently ignores non-essential pods like cronjob-generated pods (e.g., `collect-profiles`, `image-pruner`) and components that have been scaled down for resource optimization. This ensures core cluster functionality is ready while avoiding timeouts from optional components.
+
+**Example:**
+```yaml
+- name: Set up Quick-OCP with pod readiness check
+  uses: palmsoftware/quick-ocp@v0.0.16
+  with:
+    ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
+    waitForPodsReady: 'true'
+```
+
+**Note:** Enabling this option will slightly increase the setup time but ensures core cluster components are stable for subsequent operations. The intelligent filtering avoids common timeout issues from non-essential pods.
 
 # OpenShift Local
 
