@@ -28,6 +28,10 @@ inputs:
     description: 'Wait for all operators to be ready'
     required: false
     default: 'false'
+  waitForPodsReady:
+    description: 'Wait for all pods to be ready'
+    required: false
+    default: 'false'
   desiredOCPVersion:
     description: 'OpenShift version to deploy'
     required: false
@@ -440,6 +444,59 @@ runs:
       if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-operators.sh
+
+    - name: Wait for pods to be ready
+      if: ${{ inputs.waitForPodsReady == 'true' }}
+      shell: bash
+      run: |
+        echo "⏳ Waiting for pods to be ready (excluding scaled-down deployments)..."
+        
+        while true; do
+          # Get all pods that are not Running or Completed
+          PROBLEMATIC_PODS=$(oc get pods --all-namespaces --no-headers | grep -vE 'Running|Completed' | awk '{print $1":"$2}')
+          
+          if [ -z "$PROBLEMATIC_PODS" ]; then
+            echo "✅ All pods are Running or Completed."
+            break
+          fi
+          
+          # Filter out pods from deployments that have been scaled to 0
+          FILTERED_PODS=""
+          for pod_info in $PROBLEMATIC_PODS; do
+            namespace=$(echo $pod_info | cut -d: -f1)
+            pod_name=$(echo $pod_info | cut -d: -f2)
+            
+            # Check if this pod belongs to a deployment with 0 replicas
+            DEPLOYMENT_NAME=""
+            if [[ $pod_name == console-operator-* ]]; then
+              DEPLOYMENT_NAME="console-operator"
+            elif [[ $pod_name == console-* ]] && [[ $namespace == "openshift-console" ]]; then
+              DEPLOYMENT_NAME="console"
+            elif [[ $pod_name == downloads-* ]] && [[ $namespace == "openshift-console" ]]; then
+              DEPLOYMENT_NAME="downloads"
+            fi
+            
+            if [ -n "$DEPLOYMENT_NAME" ]; then
+              # Check if the deployment exists and has 0 replicas
+              REPLICAS=$(oc get deployment.apps/$DEPLOYMENT_NAME -n $namespace -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "")
+              if [ "$REPLICAS" = "0" ]; then
+                echo "⏭️  Ignoring pod $pod_name in namespace $namespace (deployment scaled to 0)"
+                continue
+              fi
+            fi
+            
+            # If we get here, this pod is problematic and not from a scaled-down deployment
+            FILTERED_PODS="$FILTERED_PODS $pod_info"
+          done
+          
+          if [ -z "$FILTERED_PODS" ]; then
+            echo "✅ All pods are Running or Completed (ignoring scaled-down deployments)."
+            break
+          fi
+          
+          echo "⏳ Waiting for pods: $(echo $FILTERED_PODS | tr ' ' '\n' | cut -d: -f2 | tr '\n' ' ')"
+          sleep 5
+        done
 
     - name: Comprehensive Disk Space Report
       shell: bash

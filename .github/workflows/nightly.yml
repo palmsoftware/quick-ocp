@@ -31,5 +31,7 @@ jobs:
           ocpPullSecret: $OCP_PULL_SECRET
           bundleCache: true
           desiredOCPVersion: ${{ matrix.ocp }}
+          waitForPodsReady: true
+          waitForOperatorsReady: true
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
