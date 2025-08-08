@@ -32,6 +32,10 @@ inputs:
     description: 'OpenShift version to deploy'
     required: false
     default: 'latest'
+  enableMicroshift:
+    description: 'Enable microshift preset for CRC'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -107,7 +111,7 @@ runs:
       id: restore-cache
       with:
         path: /home/runner/.crc/bundletmp
-        key: ${{ runner.os }}-${{ runner.arch }}-crc-cache-${{ steps.crc_version_lookup.outputs.version_number }}
+        key: ${{ runner.os }}-${{ runner.arch }}-crc-cache-${{ steps.crc_version_lookup.outputs.version_number }}-${{ inputs.enableMicroshift == 'true' && 'microshift' || 'openshift' }}
 
     - name: Copy the bundletmp to actual folder if cache hit
       if: steps.restore-cache.outputs.cache-hit == 'true'
@@ -284,6 +288,10 @@ runs:
         crc config set disk-size ${{ inputs.crcDiskSize }}
         crc config set consent-telemetry ${{ inputs.enableTelemetry }}
         crc config set network-mode user
+        if [ "${{ inputs.enableMicroshift }}" = "true" ]; then
+          echo "=== Configuring CRC for microshift preset ==="
+          crc config set preset microshift
+        fi
 
     - name: Run setup
       shell: bash
@@ -323,7 +331,7 @@ runs:
       if: ${{ inputs.bundleCache == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
       with:
         path: /home/runner/.crc/bundletmp
-        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+        key: ${{ runner.os }}-${{ runner.arch }}-crc-cache-${{ steps.crc_version_lookup.outputs.version_number }}-${{ inputs.enableMicroshift == 'true' && 'microshift' || 'openshift' }}
 
     - name: Aggressive cleanup after CRC start
       shell: bash
@@ -398,6 +406,7 @@ runs:
         done
 
     - name: Scale down OpenShift Console components to save CPU
+      if: ${{ inputs.enableMicroshift != 'true' }}
       shell: bash
       run: |
         echo "=== Scaling down non-essential OpenShift components ==="
@@ -436,10 +445,30 @@ runs:
         oc adm policy add-scc-to-user privileged user
         oc adm policy add-scc-to-group privileged system:authenticated
 
+    - name: Spoof microshift to appear as OpenShift
+      if: ${{ inputs.enableMicroshift == 'true' }}
+      shell: bash
+      run: |
+        echo "=== Spoofing microshift to appear as OpenShift ==="
+        echo "Using OpenShift version: ${{ steps.ocp_version_lookup.outputs.ocp_version }}"
+        
+        # Call the spoof-microshift script with the detected OCP version
+        ${{ github.action_path }}/scripts/spoof-microshift.sh install "${{ steps.ocp_version_lookup.outputs.ocp_version }}"
+        
+        echo "=== Microshift spoofing completed ==="
+
     - name: Wait for operators to be available
       if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-operators.sh
+
+    - name: Verify microshift cluster resources
+      if: ${{ inputs.enableMicroshift == 'true' }}
+      shell: bash
+      run: |
+        echo "=== Verifying microshift cluster resources ==="
+        ${{ github.action_path }}/scripts/verify-microshift-resources.sh --strict
+        echo "=== Cluster verification completed ==="
 
     - name: Comprehensive Disk Space Report
       shell: bash

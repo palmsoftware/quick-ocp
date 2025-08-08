@@ -12,6 +12,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, ubuntu-22.04]
         ocp: [4.17, 4.18, 4.19, latest]
+        enableMicroshift: [ocp, microshift]
     runs-on: ${{ matrix.os }}
     env:
       SHELL: /bin/bash
@@ -31,5 +32,6 @@ jobs:
           ocpPullSecret: $OCP_PULL_SECRET
           bundleCache: true
           desiredOCPVersion: ${{ matrix.ocp }}
+          enableMicroshift: ${{ matrix.enableMicroshift == 'microshift' }}
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
