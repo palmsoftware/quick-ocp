@@ -154,7 +154,7 @@ runs:
         ls -la /home/runner/.crc/
         df -h
 
-    - name: Free Disk Space (Ubuntu)
+    - name: Free Disk Space and Memory (Ubuntu)
       uses: jlumbroso/free-disk-space@main
       with:
         tool-cache: false
@@ -165,6 +165,18 @@ runs:
         docker-images: true
         swap-storage: true
       continue-on-error: true
+
+    - name: Optimize Host Memory for CRC
+      shell: bash
+      run: |
+        echo "=== Optimizing GitHub Actions runner memory for CRC ==="
+        chmod +x ${{ github.action_path }}/scripts/optimize-memory.sh
+        sudo ${{ github.action_path }}/scripts/optimize-memory.sh optimize
+        
+        echo "=== Memory status after optimization ==="
+        free -h
+        echo "=== Available memory for CRC ==="
+        awk '/MemAvailable/ {printf "Available: %.2f GB (CRC needs 10.5GB)\n", $2/1024/1024}' /proc/meminfo
 
     - name: Install dependencies for specific Ubuntu versions
       shell: bash
@@ -284,6 +296,16 @@ runs:
         crc config set disk-size ${{ inputs.crcDiskSize }}
         crc config set consent-telemetry ${{ inputs.enableTelemetry }}
         crc config set network-mode user
+        
+        # Additional memory optimizations
+        crc config set enable-cluster-monitoring false
+        crc config set disable-update-check true
+        
+        echo "=== CRC configuration ==="
+        crc config view
+        
+        echo "=== Pre-CRC memory status ==="
+        free -h
 
     - name: Run setup
       shell: bash
@@ -294,12 +316,50 @@ runs:
         echo "=== Disk usage after CRC setup ==="
         df -h
         
-        echo "=== Starting CRC ==="
-        sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug
+        echo "=== Memory status before CRC start ==="
+        free -h
+        
+        echo "=== Applying CRC-specific optimizations ==="
+        ${{ github.action_path }}/scripts/optimize-memory.sh crc
+        
+        echo "=== Starting CRC with stability improvements ==="
+        # Set longer timeouts to handle resource-constrained environment
+        export CRC_MACHINE_LOG_LEVEL=debug
+        export CRC_DIAL_TIMEOUT=30s
+        export CRC_SSH_TIMEOUT=60s
+        
+        # Ensure we have maximum memory available
+        sync
+        sudo sysctl vm.drop_caches=3
+        
+        # Start CRC with retries and longer timeouts
+        retries=3
+        for attempt in $(seq 1 $retries); do
+          echo "CRC start attempt $attempt/$retries"
+          
+          if sudo -su $USER timeout 2400s crc start --pull-secret-file pull-secret.json --log-level debug; then
+            echo "CRC started successfully on attempt $attempt"
+            break
+          else
+            echo "CRC start failed on attempt $attempt"
+            if [ $attempt -lt $retries ]; then
+              echo "Cleaning up before retry..."
+              sudo -su $USER crc stop || true
+              sudo -su $USER crc delete -f || true
+              sleep 30
+              echo "Retrying CRC start..."
+            else
+              echo "All CRC start attempts failed"
+              exit 1
+            fi
+          fi
+        done
         
         # Clean up pull secret immediately after use
         rm -f pull-secret.json
         
+        echo "=== Memory status after CRC start ==="
+        free -h
         echo "=== Disk usage after CRC start ==="
         df -h
 
@@ -397,38 +457,58 @@ runs:
           sleep 5
         done
 
-    - name: Scale down OpenShift Console components to save CPU
+    - name: Scale down OpenShift components to save memory
       shell: bash
       run: |
-        echo "=== Scaling down non-essential OpenShift components ==="
+        echo "=== Aggressively scaling down non-essential OpenShift components ==="
         
-        # Scale down console deployments if they exist
-        if oc get deployment.apps/console -n openshift-console &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/console -n openshift-console || true
-          echo "Scaled down console deployment"
-        else
-          echo "console deployment not found in openshift-console namespace"
-        fi
+        # Scale down console components
+        oc scale --replicas=0 deployment.apps/console -n openshift-console || true
+        oc scale --replicas=0 deployment.apps/downloads -n openshift-console || true
+        oc scale --replicas=0 deployment.apps/console-operator -n openshift-console || true
+        oc scale --replicas=0 deployment.apps/console-operator -n openshift-console-operator || true
         
-        if oc get deployment.apps/downloads -n openshift-console &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/downloads -n openshift-console || true
-          echo "Scaled down downloads deployment"
-        else
-          echo "downloads deployment not found in openshift-console namespace"
-        fi
+        # Scale down monitoring components (high memory usage)
+        oc scale --replicas=0 deployment.apps/cluster-monitoring-operator -n openshift-monitoring || true
+        oc scale --replicas=0 deployment.apps/prometheus-operator -n openshift-monitoring || true
+        oc scale --replicas=0 statefulset.apps/prometheus-k8s -n openshift-monitoring || true
+        oc scale --replicas=0 statefulset.apps/alertmanager-main -n openshift-monitoring || true
+        oc scale --replicas=0 deployment.apps/grafana -n openshift-monitoring || true
+        oc scale --replicas=0 deployment.apps/kube-state-metrics -n openshift-monitoring || true
+        oc scale --replicas=0 daemonset.apps/node-exporter -n openshift-monitoring || true
         
-        # Check for console-operator in multiple possible namespaces
-        if oc get deployment.apps/console-operator -n openshift-console &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/console-operator -n openshift-console || true
-          echo "Scaled down console-operator in openshift-console"
-        elif oc get deployment.apps/console-operator -n openshift-console-operator &>/dev/null; then
-          oc scale --replicas=0 deployment.apps/console-operator -n openshift-console-operator || true
-          echo "Scaled down console-operator in openshift-console-operator"
-        else
-          echo "console-operator deployment not found in openshift-console or openshift-console-operator namespaces"
-        fi
+        # Scale down marketplace and operator lifecycle manager
+        oc scale --replicas=0 deployment.apps/marketplace-operator -n openshift-marketplace || true
+        oc scale --replicas=0 deployment.apps/certified-operators -n openshift-marketplace || true
+        oc scale --replicas=0 deployment.apps/community-operators -n openshift-marketplace || true
+        oc scale --replicas=0 deployment.apps/redhat-marketplace -n openshift-marketplace || true
+        oc scale --replicas=0 deployment.apps/redhat-operators -n openshift-marketplace || true
         
-        echo "=== Resource scaling completed ==="
+        # Scale down cluster version operator (reduces update checks)
+        oc scale --replicas=0 deployment.apps/cluster-version-operator -n openshift-cluster-version || true
+        
+        # Scale down image registry if present
+        oc scale --replicas=0 deployment.apps/cluster-image-registry-operator -n openshift-image-registry || true
+        oc scale --replicas=0 deployment.apps/image-registry -n openshift-image-registry || true
+        
+        # Scale down DNS operator (keep DNS pods but reduce operator overhead)
+        oc scale --replicas=0 deployment.apps/dns-operator -n openshift-dns-operator || true
+        
+        # Scale down insights operator
+        oc scale --replicas=0 deployment.apps/insights-operator -n openshift-insights || true
+        
+        # Scale down machine config components
+        oc scale --replicas=0 deployment.apps/machine-config-operator -n openshift-machine-config-operator || true
+        
+        # Scale down authentication operator
+        oc scale --replicas=0 deployment.apps/authentication-operator -n openshift-authentication-operator || true
+        
+        echo "=== Checking memory usage after scaling ==="
+        free -h
+        echo "=== Scaled down resource-heavy components ==="
+        
+        # Apply additional post-CRC memory optimizations
+        ${{ github.action_path }}/scripts/optimize-memory.sh post-crc
 
     - name: Set the adm policy
       shell: bash
@@ -525,5 +605,32 @@ runs:
         echo ""
         echo "=================================="
         echo "  END OF DISK SPACE ANALYSIS"
+        echo "=================================="
+      continue-on-error: true
+
+    - name: Final Memory Status Report
+      shell: bash
+      run: |
+        echo "=================================="
+        echo "  FINAL MEMORY STATUS REPORT"
+        echo "=================================="
+        
+        ${{ github.action_path }}/scripts/optimize-memory.sh status
+        
+        echo ""
+        echo "=== Memory Recommendations ==="
+        AVAILABLE_GB=$(awk '/MemAvailable/ {printf "%.2f", $2/1024/1024}' /proc/meminfo)
+        if (( $(echo "$AVAILABLE_GB > 2.0" | bc -l) )); then
+          echo "✅ Memory situation looks stable"
+        elif (( $(echo "$AVAILABLE_GB > 1.0" | bc -l) )); then
+          echo "⚠️  Memory is tight but should be manageable"
+        else
+          echo "🚨 Memory is critically low - expect potential OOM issues"
+        fi
+        
+        echo ""
+        echo "=== CRC Memory Usage ==="
+        echo "CRC allocation: 10.5GB"
+        echo "Available host: ${AVAILABLE_GB}GB"
         echo "=================================="
       continue-on-error: true
