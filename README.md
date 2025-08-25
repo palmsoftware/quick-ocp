@@ -47,6 +47,6 @@ with:
 ```
 
 - The default is `latest`, which will use the most recent supported version.  If you leave `desiredOCPVersion` blank, you will get the latest version.
-- Supported values are `4.17`, `4.18`, and `latest`.
+- Supported values are `4.18`, `4.19`, and `latest`.
 
 For more details, see the [action.yml](action.yml) and workflow examples.
