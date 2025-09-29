@@ -5,14 +5,14 @@
 GITHUB_API="https://api.github.com/repos/crc-org/crc/releases?per_page=100"
 
 if [ -z "$1" ]; then
-  echo "Usage: $0 <ocp_major.minor> (e.g., 4.18)" >&2
+  echo "Usage: $0 <ocp_major.minor> (e.g., 4.14)" >&2
   exit 1
 fi
 OCP_VERSION="$1"
 
-# Only support OCP versions 4.10 and above
-if ! [[ "$OCP_VERSION" =~ ^4\.([1-9][0-9]|10)$ ]]; then
-  echo "Error: Only OCP versions 4.10 and above are supported (e.g., 4.18, 4.20)." >&2
+# TEMP: Only allow OCP versions 4.14–4.19 for branch testing
+if ! [[ "$OCP_VERSION" =~ ^4\.(1[4-9])$ ]]; then
+  echo "Error: For this branch, only OCP versions 4.14–4.19 are allowed (e.g., 4.14, 4.19)." >&2
   exit 2
 fi
 

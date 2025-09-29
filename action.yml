@@ -45,9 +45,9 @@ runs:
         if [ "${{ inputs.desiredOCPVersion }}" = "latest" ]; then
           echo "crc_version=latest" | tee "$GITHUB_OUTPUT"
         else
-          # Only allow OCP versions 4.18 and above
-          if [[ ! "${{ inputs.desiredOCPVersion }}" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]] && [[ "${{ inputs.desiredOCPVersion }}" != "latest" ]]; then
-            echo "[ERROR] Only OpenShift versions 4.18 and above are supported in this action." >&2
+          # TEMP: Allow OCP versions 4.14–4.19 (and 'latest') for branch testing
+          if [[ ! "${{ inputs.desiredOCPVersion }}" =~ ^4\.(1[4-9])$ ]] && [[ "${{ inputs.desiredOCPVersion }}" != "latest" ]]; then
+            echo "[ERROR] For this branch, only OpenShift versions 4.14–4.19 or 'latest' are allowed." >&2
             exit 1
           fi
           echo "Fetching CRC version for OCP ${{ inputs.desiredOCPVersion }}..."
@@ -56,7 +56,7 @@ runs:
           if [[ $CRC_VERSION == No* ]] || [[ $CRC_VERSION == Error* ]]; then
             echo "[ERROR] The requested OpenShift version (${{ inputs.desiredOCPVersion }}) is not supported or no matching CRC release was found." >&2
             echo "Details: $CRC_VERSION" >&2
-            echo "Please choose a supported OCP version (e.g., 4.18 or above) or check https://github.com/crc-org/crc/releases for available versions." >&2
+            echo "Please choose a supported OCP version (4.14–4.19 or 'latest') or check https://github.com/crc-org/crc/releases for available versions." >&2
             exit 1
           fi
           # If script returns 'latest' due to API issues, use latest
