@@ -8,7 +8,28 @@ name: Test Changes
     branches: [main]
 
 jobs:
+  lint-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      - name: Install Shfmt
+        uses: mfinelli/setup-shfmt@a25fda4c1fe115aec0f85e04126610841bc3141d # v4.0.1
+
+      - name: Lint shell scripts
+        run: |
+          echo "Linting shell scripts in scripts/ directory..."
+          shfmt -d -i 2 -ci scripts/*.sh
+          if [ $? -ne 0 ]; then
+            echo "❌ Shell script formatting issues found!"
+            echo "Run 'shfmt -w -i 2 -ci scripts/*.sh' to fix them."
+            exit 1
+          fi
+          echo "✅ All shell scripts are properly formatted!"
+
   run-ocp:
+    needs: lint-scripts
     strategy:
       fail-fast: false
       matrix:
