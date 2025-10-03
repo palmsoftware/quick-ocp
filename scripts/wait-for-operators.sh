@@ -1,6 +1,6 @@
 #!/bin/bash
 
-timeout=600  # 10 minutes in seconds
+timeout=600 # 10 minutes in seconds
 elapsed=0
 interval=10
 
