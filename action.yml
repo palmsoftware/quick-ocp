@@ -32,6 +32,10 @@ inputs:
     description: 'OpenShift version to deploy'
     required: false
     default: 'latest'
+  crcVersion:
+    description: 'Specific CRC version to use (overrides version detection and pinning)'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -40,7 +44,7 @@ runs:
     - name: Set CRC version variable
       id: set_crc_version
       shell: bash
-      run: ${{ github.action_path }}/scripts/set-crc-version.sh "${{ inputs.desiredOCPVersion }}" "${{ github.action_path }}"
+      run: ${{ github.action_path }}/scripts/set-crc-version.sh "${{ inputs.desiredOCPVersion }}" "${{ github.action_path }}" "${{ inputs.crcVersion }}"
 
     - name: Download and Install OpenShift Local Binary
       shell: bash

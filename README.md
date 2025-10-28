@@ -50,3 +50,57 @@ with:
 - Supported values are `4.18`, `4.19`, and `latest`.
 
 For more details, see the [action.yml](action.yml) and workflow examples.
+
+## CRC Version Control
+
+### Version Pinning
+
+To ensure stability and avoid issues with specific CRC releases, this action uses a version pinning mechanism. The `crc-version-pins.json` file maps OCP versions to specific known-good CRC versions.
+
+**How it works:**
+1. When you specify a `desiredOCPVersion` (e.g., `4.19`), the action first checks `crc-version-pins.json`
+2. If a specific CRC version is pinned (not set to `"auto"`), that version is used
+3. If set to `"auto"`, the action queries the GitHub API for the latest CRC release supporting that OCP version
+4. Known issues with specific versions are documented in the `known_issues` section
+
+**Example from `crc-version-pins.json`:**
+```json
+{
+  "version_pins": {
+    "latest": "2.54.0",
+    "4.19": "2.54.0"
+  },
+  "known_issues": {
+    "latest": {
+      "description": "Latest CRC versions (2.55.x) have expired certificates. Pinning to 2.54.0 until fixed."
+    },
+    "4.19": {
+      "broken_versions": ["2.55.0", "2.55.1"],
+      "issue": "https://github.com/crc-org/crc/issues/4981",
+      "description": "CRC 2.55.x with bundle 4.19.13 has expired kube-scheduler certificates"
+    }
+  }
+}
+```
+
+**Note:** The `latest` version is also pinned to prevent users from automatically getting broken releases when they don't specify a version.
+
+### Explicit CRC Version Override
+
+You can also explicitly specify a CRC version, which overrides both version pinning and automatic detection:
+
+```yaml
+with:
+  desiredOCPVersion: 4.19
+  crcVersion: 2.54.0
+```
+
+This is useful for:
+- Testing specific CRC versions
+- Working around newly discovered issues before pins are updated
+- Ensuring reproducibility in CI/CD pipelines
+
+**Priority order:**
+1. Explicit `crcVersion` input (highest priority)
+2. Pinned version in `crc-version-pins.json`
+3. Automatic detection via GitHub API (lowest priority)
