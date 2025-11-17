@@ -2,19 +2,12 @@
   "_comment": "This file pins specific CRC versions for OCP minor versions to avoid known issues",
   "_documentation": "Format: 'OCP_VERSION': 'CRC_VERSION'. Use 'auto' to fetch latest from GitHub API. 'latest' key controls what happens when user specifies 'latest' as desiredOCPVersion.",
   "version_pins": {
-    "latest": "2.54.0",
+    "latest": "auto",
     "4.18": "auto",
     "4.19": "2.54.0",
     "4.20": "auto"
   },
   "known_issues": {
-    "latest": {
-      "broken_versions": ["2.55.0", "2.55.1"],
-      "issue": "https://github.com/crc-org/crc/issues/4981",
-      "description": "Latest CRC versions (2.55.x) ship with bundle 4.19.13 which has expired kube-scheduler certificates. Pinning to 2.54.0 until fixed.",
-      "working_version": "2.54.0",
-      "bundle_version": "4.19.8"
-    },
     "4.19": {
       "broken_versions": ["2.55.0", "2.55.1"],
       "issue": "https://github.com/crc-org/crc/issues/4981",
