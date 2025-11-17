@@ -5,6 +5,18 @@ DESIRED_OCP_VERSION="$1"
 ACTION_PATH="$2"
 EXPLICIT_CRC_VERSION="${3:-}"
 
+# Normalize version string to handle YAML float parsing issues
+# YAML parses 4.20 as 4.2, so we need to normalize it back
+if [[ "$DESIRED_OCP_VERSION" =~ ^4\.([0-9]+)$ ]]; then
+  MINOR_VERSION="${BASH_REMATCH[1]}"
+  # If minor version is a single digit >= 2, assume it's missing a trailing zero
+  # (e.g., 4.2 should be 4.20, but 4.18, 4.19 are already correct)
+  if [ ${#MINOR_VERSION} -eq 1 ] && [ "$MINOR_VERSION" -ge 2 ]; then
+    DESIRED_OCP_VERSION="4.${MINOR_VERSION}0"
+    echo "Normalized version from 4.$MINOR_VERSION to $DESIRED_OCP_VERSION (YAML float parsing fix)"
+  fi
+fi
+
 echo "Desired OCP Version: $DESIRED_OCP_VERSION"
 
 # If an explicit CRC version is provided, use it directly

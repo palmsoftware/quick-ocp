@@ -54,6 +54,8 @@ with:
 - The default is `latest`, which will use the most recent supported version.  If you leave `desiredOCPVersion` blank, you will get the latest version.
 - Supported values are `4.18`, `4.19`, `4.20`, and `latest`.
 
+**Note:** YAML parsers interpret `4.20` as a floating-point number and convert it to `4.2`. The action automatically normalizes this back to `4.20`, so you don't need to quote version numbers in your workflow files.
+
 For more details, see the [action.yml](action.yml) and workflow examples.
 
 ## CRC Version Control
@@ -87,7 +89,7 @@ To ensure stability and avoid issues with specific CRC releases, this action use
 }
 ```
 
-**Note:** The `latest` version is pinned to 2.56.0 to provide a stable default. Versions set to `"auto"` (4.18, 4.20) automatically fetch the latest compatible CRC version from GitHub. Only 4.19 is pinned to avoid the certificate issue in 2.55.x.
+**Note:** Versions set to `"auto"` (latest, 4.18, 4.20) automatically fetch the latest compatible CRC version from GitHub API. Only 4.19 is pinned to 2.54.0 to avoid the certificate issue in 2.55.x.
 
 ### Explicit CRC Version Override
 
