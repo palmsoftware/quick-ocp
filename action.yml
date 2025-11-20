@@ -36,10 +36,19 @@ inputs:
     description: 'Specific CRC version to use (overrides version detection and pinning)'
     required: false
     default: ''
+  disableConnectivityCheck:
+    description: 'Disable the connectivity check for OpenShift Mirror'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
   steps:
+
+    - name: Check connectivity to required services
+      if: ${{ inputs.disableConnectivityCheck != 'true' }}
+      shell: bash
+      run: ${{ github.action_path }}/scripts/check-connectivity.sh
 
     - name: Set CRC version variable
       id: set_crc_version

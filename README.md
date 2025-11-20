@@ -16,6 +16,21 @@ If you are looking to quickly spawn Kubernetes in your Action runner, try [quick
 
 - This does not run correctly on `ubuntu-20.04` runners due to the version of `libvirt` available in the mirrors isn't the minimum version required by OpenShift Local.
 
+# Connectivity Requirements:
+
+This action requires network access to the **OpenShift Mirror** (`https://mirror.openshift.com`) for downloading CRC binaries and OpenShift client tools.
+
+The action includes an automatic connectivity check that runs at the beginning of each workflow. If the OpenShift Mirror is unreachable, the action will fail gracefully with a clear error message.
+
+You can disable this check by setting `disableConnectivityCheck: true` in your workflow:
+
+```yaml
+with:
+  disableConnectivityCheck: true
+```
+
+Note: Disabling this check is not recommended as it may result in less clear error messages if connectivity issues occur during the workflow.
+
 # Usage:
 
 Basic Usage:
