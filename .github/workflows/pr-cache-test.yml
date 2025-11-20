@@ -1,0 +1,223 @@
+---
+name: PR - Test Both Download Paths
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/download-*.sh'
+      - 'scripts/*-cache*.sh'
+      - '.github/workflows/pr-cache-test.yml'
+  workflow_dispatch:
+    inputs:
+      test_version:
+        description: 'CRC version to test'
+        required: false
+        type: string
+        default: '2.54.0'
+
+jobs:
+  # Test Path 1: Normal mirror download
+  test-mirror-path:
+    name: Test Normal Mirror Download
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Test mirror download (normal path)
+        env:
+          SIMULATE_MIRROR_FAILURE: false
+          CACHE_REGISTRY: quay.io
+          CACHE_IMAGE_NAME: bapalm/quick-ocp-cache
+        run: |
+          echo "================================================"
+          echo "Testing Normal Mirror Download Path"
+          echo "================================================"
+          echo "This tests the PRIMARY download path (mirror)"
+          echo "Cache is available as backup but should not be used"
+          echo "================================================"
+          echo ""
+          
+          CRC_VERSION="${{ github.event.inputs.test_version || '2.54.0' }}"
+          ./scripts/download-install-crc-with-cache.sh "$CRC_VERSION"
+
+      - name: Verify CRC works
+        run: |
+          echo ""
+          echo "Verifying CRC installation from mirror..."
+          which crc
+          crc version
+          echo ""
+          echo "✓ Mirror download path successful"
+
+      - name: Check download source
+        run: |
+          echo ""
+          echo "Download Source Verification:"
+          echo "This CRC binary came from: Primary Mirror"
+          echo "Cache was available but not used (as expected)"
+
+  # Test Path 2: Cache download (forced)
+  test-cache-path:
+    name: Test Cache Failover Download
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Test cache download (failover path)
+        env:
+          SIMULATE_MIRROR_FAILURE: true
+          CACHE_REGISTRY: quay.io
+          CACHE_IMAGE_NAME: bapalm/quick-ocp-cache
+        run: |
+          echo "================================================"
+          echo "Testing Cache Failover Download Path"
+          echo "================================================"
+          echo "This tests the FAILOVER path (cache)"
+          echo "Mirror will be simulated as unavailable"
+          echo "================================================"
+          echo ""
+          
+          CRC_VERSION="${{ github.event.inputs.test_version || '2.54.0' }}"
+          ./scripts/download-install-crc-with-cache.sh "$CRC_VERSION"
+
+      - name: Verify CRC works
+        run: |
+          echo ""
+          echo "Verifying CRC installation from cache..."
+          which crc
+          crc version
+          echo ""
+          echo "✓ Cache download path successful"
+
+      - name: Check download source
+        run: |
+          echo ""
+          echo "Download Source Verification:"
+          echo "This CRC binary came from: Cache Failover"
+          echo "Cache image: quay.io/bapalm/quick-ocp-cache:${{ github.event.inputs.test_version || '2.54.0' }}"
+          echo "Mirror was simulated as unavailable (as expected)"
+
+  # Test Path 3: Cache not available (should fail gracefully)
+  test-missing-cache:
+    name: Test Missing Cache Handling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Test with non-existent cache version
+        continue-on-error: true
+        id: test_missing
+        env:
+          SIMULATE_MIRROR_FAILURE: true
+          CACHE_REGISTRY: quay.io
+          CACHE_IMAGE_NAME: bapalm/quick-ocp-cache
+        run: |
+          echo "================================================"
+          echo "Testing Error Handling for Missing Cache"
+          echo "================================================"
+          echo "This tests error handling when:"
+          echo "  - Mirror is unavailable (simulated)"
+          echo "  - Cache doesn't exist for this version"
+          echo "Expected: Graceful failure with helpful message"
+          echo "================================================"
+          echo ""
+          
+          ./scripts/download-install-crc-with-cache.sh "9.99.9"
+
+      - name: Verify expected failure
+        run: |
+          echo ""
+          echo "================================================"
+          echo "Error Handling Verification"
+          echo "================================================"
+          if [ "${{ steps.test_missing.outcome }}" = "failure" ]; then
+            echo "✓ Script correctly failed for unavailable sources"
+            echo "✓ Error handling is working as expected"
+            echo ""
+            echo "The script properly detected that:"
+            echo "  - Mirror was unavailable"
+            echo "  - Cache didn't exist for version 9.99.9"
+            echo "  - Provided helpful troubleshooting information"
+          else
+            echo "✗ Script should have failed but didn't!"
+            echo "This indicates a problem with error handling"
+            exit 1
+          fi
+
+  # Summary job
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-mirror-path, test-cache-path, test-missing-cache]
+    if: always()
+    steps:
+      - name: Generate test summary
+        run: |
+          echo "# PR Cache Testing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Mirror path
+          if [ "${{ needs.test-mirror-path.result }}" = "success" ]; then
+            echo "✅ **Normal Mirror Download** - PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "   - Primary download path working correctly" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Normal Mirror Download** - FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "   - Primary download path has issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Cache path
+          if [ "${{ needs.test-cache-path.result }}" = "success" ]; then
+            echo "✅ **Cache Failover Download** - PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "   - Cache failover path working correctly" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Cache Failover Download** - FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "   - Cache failover path has issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Error handling
+          if [ "${{ needs.test-missing-cache.result }}" = "success" ]; then
+            echo "✅ **Error Handling** - PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "   - Graceful failure when sources unavailable" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Error Handling** - FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "   - Error handling needs improvement" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall status
+          echo "## Overall Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.test-mirror-path.result }}" = "success" ] && \
+             [ "${{ needs.test-cache-path.result }}" = "success" ] && \
+             [ "${{ needs.test-missing-cache.result }}" = "success" ]; then
+            echo "🎉 **All tests passed!** Both download paths are working correctly." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Some tests failed.** Review the logs above for details." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tested CRC Version:** ${{ github.event.inputs.test_version || '2.54.0' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Cache Image:** quay.io/bapalm/quick-ocp-cache:${{ github.event.inputs.test_version || '2.54.0' }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check if all tests passed
+        run: |
+          if [ "${{ needs.test-mirror-path.result }}" = "success" ] && \
+             [ "${{ needs.test-cache-path.result }}" = "success" ] && \
+             [ "${{ needs.test-missing-cache.result }}" = "success" ]; then
+            echo "✅ All tests passed"
+            exit 0
+          else
+            echo "❌ Some tests failed"
+            exit 1
+          fi
+

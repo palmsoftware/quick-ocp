@@ -1,0 +1,199 @@
+name: 'Quick OCP (Cache Testing)'
+description: 'Testing version that always uses cache failover'
+inputs:
+  ocpPullSecret:
+    description: 'Pull secret for OpenShift Local'
+    required: true
+  crcMemory:
+    description: 'Memory Allocation for OpenShift Local'
+    required: false
+    default: '10752'
+  crcCpu:
+    description: 'CPU Allocation for OpenShift Local'
+    required: false
+    default: '4'
+  enableTelemetry:
+    description: 'Enable telemetry for OpenShift Local'
+    required: false
+    default: 'yes'
+  crcDiskSize:
+    description: 'Disk size for OpenShift Local'
+    required: false
+    default: '31'
+  bundleCache:
+    description: 'Cache the crc bundles for faster startup'
+    required: false
+    default: 'false'
+  waitForOperatorsReady:
+    description: 'Wait for all operators to be ready'
+    required: false
+    default: 'false'
+  desiredOCPVersion:
+    description: 'OpenShift version to deploy'
+    required: false
+    default: 'latest'
+  crcVersion:
+    description: 'Specific CRC version to use (overrides version detection and pinning)'
+    required: false
+    default: ''
+  # Testing parameters
+  simulateMirrorFailure:
+    description: 'Simulate mirror failure to test cache failover'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+
+    - name: Set CRC version variable
+      id: set_crc_version
+      shell: bash
+      run: ${{ github.action_path }}/scripts/set-crc-version.sh "${{ inputs.desiredOCPVersion }}" "${{ github.action_path }}" "${{ inputs.crcVersion }}"
+
+    - name: Download and Install OpenShift Local Binary (with cache failover)
+      shell: bash
+      env:
+        SIMULATE_MIRROR_FAILURE: ${{ inputs.simulateMirrorFailure }}
+        CACHE_REGISTRY: quay.io
+        CACHE_IMAGE_NAME: bapalm/quick-ocp-cache
+      run: ${{ github.action_path }}/scripts/download-install-crc-with-cache.sh "${{ steps.set_crc_version.outputs.crc_version }}"
+
+    - name: CRC version lookup from crc
+      id: crc_version_lookup
+      shell: bash
+      run: ${{ github.action_path }}/scripts/get-crc-version.sh
+
+    - name: OCP version lookup from crc
+      id: ocp_version_lookup
+      shell: bash
+      run: ${{ github.action_path }}/scripts/get-ocp-version.sh
+
+    - name: Restore CRC bundles from the cache
+      uses: actions/cache/restore@v4
+      if: ${{ inputs.bundleCache == 'true' }}
+      id: restore-cache
+      with:
+        path: /home/runner/.crc/bundletmp
+        key: ${{ runner.os }}-${{ runner.arch }}-crc-cache-${{ steps.crc_version_lookup.outputs.version_number }}
+
+    - name: Copy the bundletmp to actual folder if cache hit
+      if: steps.restore-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: ${{ github.action_path }}/scripts/copy-bundletmp-to-cache.sh
+
+    - name: Setup CRC cache directory on larger disk
+      shell: bash
+      run: ${{ github.action_path }}/scripts/setup-crc-cache-larger-disk.sh
+
+    - name: Create swap on /mnt to reduce OOM risk
+      shell: bash
+      run: ${{ github.action_path }}/scripts/create-swap.sh
+
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: false
+        large-packages: true
+        android: true
+        dotnet: true
+        haskell: true
+        docker-images: true
+        swap-storage: false
+      continue-on-error: true
+
+    - name: Install dependencies for specific Ubuntu versions
+      shell: bash
+      run: ${{ github.action_path }}/scripts/install-ubuntu-dependencies.sh
+
+    - name: Enable KVM group perms
+      shell: bash
+      run: ${{ github.action_path }}/scripts/enable-kvm-perms.sh
+
+    # If there is no /etc/docker/daemon.json, create it.
+    - name: Create /etc/docker/daemon.json
+      shell: bash
+      run: ${{ github.action_path }}/scripts/create-docker-daemon-json.sh
+
+    # Restart docker using /mnt/docker-storage (sdb) instead of /var/lib/docker (sda).
+    # This step needs to be done right after the partner repo's bootstrap scripts, as they
+    # overwrite the docker's daemon.json.
+    - name: Make docker to use /mnt (sdb) for storage
+      shell: bash
+      run: ${{ github.action_path }}/scripts/move-docker-storage.sh
+
+    - name: reload the terminal to load the libvirt group
+      shell: bash
+      run: ${{ github.action_path }}/scripts/reload-terminal-libvirt.sh
+
+    - name: Check if user is part of libvirt group
+      shell: bash
+      run: ${{ github.action_path }}/scripts/check-libvirt-group.sh
+      
+    - name: Write the pull secret to json file
+      shell: bash
+      run: ${{ github.action_path }}/scripts/write-pull-secret.sh "${{ inputs.ocpPullSecret }}"
+        
+    - name: Prompt the user if bundleCache is false
+      if: ${{ inputs.bundleCache == false }}
+      shell: bash
+      run: ${{ github.action_path }}/scripts/prompt-bundle-cache-skip.sh
+
+    - name: Start OpenShift Local
+      shell: bash
+      run: ${{ github.action_path }}/scripts/configure-crc.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.crcDiskSize }}" "${{ inputs.enableTelemetry }}"
+
+    - name: Run setup
+      shell: bash
+      run: ${{ github.action_path }}/scripts/run-crc-setup.sh
+
+    - name: Protect CRC/QEMU from OOM killer
+      shell: bash
+      run: ${{ github.action_path }}/scripts/protect-crc-from-oom.sh
+
+    - name: Move the .crcbundle files to another temporary folder
+      shell: bash
+      run: ${{ github.action_path }}/scripts/move-crc-bundles-to-temp.sh
+
+    - name: Cache the crc bundles using github actions cache
+      uses: actions/cache/save@v4
+      if: ${{ inputs.bundleCache == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
+      with:
+        path: /home/runner/.crc/bundletmp
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+
+    - name: Aggressive cleanup after CRC start
+      shell: bash
+      run: ${{ github.action_path }}/scripts/aggressive-cleanup.sh
+      continue-on-error: true
+
+    - name: Print the disk statistics
+      shell: bash
+      run: ${{ github.action_path }}/scripts/print-disk-statistics.sh
+
+    - name: Bootstrap the runner with kubectl and oc clients
+      shell: bash
+      run: ${{ github.action_path }}/scripts/bootstrap-oc-kubectl.sh "${{ steps.ocp_version_lookup.outputs.ocp_version }}" "${{ github.action_path }}"
+
+    - name: Wait until node is Ready state
+      shell: bash
+      run: ${{ github.action_path }}/scripts/wait-for-node-ready.sh
+
+    - name: Scale down OpenShift Console components to save CPU
+      shell: bash
+      run: ${{ github.action_path }}/scripts/scale-down-console.sh
+
+    - name: Set the adm policy
+      shell: bash
+      run: ${{ github.action_path }}/scripts/set-adm-policy.sh
+
+    - name: Wait for operators to be available
+      if: ${{ inputs.waitForOperatorsReady == 'true' }}
+      shell: bash
+      run: ${{ github.action_path }}/scripts/wait-for-operators.sh
+
+    - name: Comprehensive Disk Space Report
+      shell: bash
+      run: ${{ github.action_path }}/scripts/comprehensive-disk-report.sh
+      continue-on-error: true
+

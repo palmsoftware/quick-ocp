@@ -1,0 +1,117 @@
+---
+name: Test Cache Integration (Full Action)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ocp_version:
+        description: 'OCP version to test'
+        required: false
+        type: string
+        default: '4.19'
+      force_cache:
+        description: 'Force cache usage (simulate mirror failure)'
+        required: false
+        type: boolean
+        default: true
+      skip_cluster_start:
+        description: 'Skip starting the cluster (just test binary download)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test-with-cache:
+    runs-on: ubuntu-24.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Display test configuration
+        run: |
+          echo "================================================"
+          echo "Full Action Cache Integration Test"
+          echo "================================================"
+          echo "OCP Version: ${{ inputs.ocp_version }}"
+          echo "Force Cache: ${{ inputs.force_cache }}"
+          echo "Skip Cluster Start: ${{ inputs.skip_cluster_start }}"
+          echo "================================================"
+
+      - name: Set CRC version variable
+        id: set_crc_version
+        run: ./scripts/set-crc-version.sh "${{ inputs.ocp_version }}" "." ""
+
+      - name: Display determined CRC version
+        run: |
+          echo "========================================="
+          echo "CRC Version Determination"
+          echo "========================================="
+          echo "OCP Version: ${{ inputs.ocp_version }}"
+          echo "CRC Version: ${{ steps.set_crc_version.outputs.crc_version }}"
+          echo "Cache Image: quay.io/bapalm/quick-ocp-cache:${{ steps.set_crc_version.outputs.crc_version }}"
+          echo "========================================="
+
+      - name: Download CRC with cache failover
+        env:
+          SIMULATE_MIRROR_FAILURE: ${{ inputs.force_cache }}
+          CACHE_REGISTRY: quay.io
+          CACHE_IMAGE_NAME: bapalm/quick-ocp-cache
+        run: |
+          echo ""
+          echo "========================================="
+          echo "Testing Cache Failover"
+          echo "========================================="
+          ./scripts/download-install-crc-with-cache.sh "${{ steps.set_crc_version.outputs.crc_version }}"
+
+      - name: Verify CRC installation
+        id: verify_crc
+        run: |
+          echo ""
+          echo "========================================="
+          echo "Verifying CRC Installation"
+          echo "========================================="
+          which crc
+          crc version
+          
+          echo ""
+          echo "CRC_VERSION_OUTPUT<<EOF" >> $GITHUB_OUTPUT
+          crc version >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Continue with cluster setup if requested
+        if: ${{ inputs.skip_cluster_start == false }}
+        run: |
+          echo "========================================="
+          echo "Continuing with full cluster setup..."
+          echo "========================================="
+          echo "This would continue with the full action steps"
+          echo "Skipped for now to save runner time"
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo ""
+          echo "================================================"
+          echo "Test Summary"
+          echo "================================================"
+          echo "OCP Version: ${{ inputs.ocp_version }}"
+          echo "CRC Version: ${{ steps.set_crc_version.outputs.crc_version }}"
+          echo "Forced Cache: ${{ inputs.force_cache }}"
+          echo ""
+          echo "CRC Installation:"
+          echo "${{ steps.verify_crc.outputs.CRC_VERSION_OUTPUT }}"
+          echo ""
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Status: ✓ SUCCESS"
+            echo ""
+            echo "Cache integration is working!"
+            if [ "${{ inputs.force_cache }}" = "true" ]; then
+              echo "✓ Successfully downloaded from cache (mirror was bypassed)"
+            fi
+          else
+            echo "Status: ✗ FAILED"
+          fi
+          echo "================================================"
+

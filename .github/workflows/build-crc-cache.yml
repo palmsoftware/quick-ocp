@@ -1,0 +1,166 @@
+---
+name: Build CRC Cache Images
+
+on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      specific_version:
+        description: 'Specific CRC version to build (e.g., 2.56.0). Leave empty to build all recent versions.'
+        required: false
+        type: string
+      force_rebuild:
+        description: 'Force rebuild even if image exists'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: quay.io
+  IMAGE_NAME: bapalm/quick-ocp-cache
+
+jobs:
+  discover-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.get-versions.outputs.versions }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover CRC versions
+        id: get-versions
+        run: |
+          set -e
+          
+          if [ -n "${{ inputs.specific_version }}" ]; then
+            # Build specific version if provided
+            echo "Building specific version: ${{ inputs.specific_version }}"
+            echo "versions=[\"${{ inputs.specific_version }}\"]" >> $GITHUB_OUTPUT
+          else
+            # Get versions from crc-version-pins.json
+            echo "Discovering versions from crc-version-pins.json..."
+            
+            # Extract pinned versions
+            PINNED_VERSIONS=$(jq -r '.version_pins | to_entries[] | select(.value != "auto" and .key != "latest") | .value' crc-version-pins.json | sort -u)
+            
+            # Get recent versions from GitHub API
+            echo "Fetching recent CRC releases from GitHub..."
+            RECENT_VERSIONS=$(curl -s "https://api.github.com/repos/crc-org/crc/releases?per_page=10" | \
+              jq -r '.[].tag_name | select(startswith("v")) | ltrimstr("v")' | \
+              head -5)
+            
+            # Combine and deduplicate
+            ALL_VERSIONS=$(echo -e "${PINNED_VERSIONS}\n${RECENT_VERSIONS}" | sort -Vru | head -10)
+            
+            # Convert to JSON array
+            JSON_VERSIONS=$(echo "$ALL_VERSIONS" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            
+            echo "Versions to build: $JSON_VERSIONS"
+            echo "versions=$JSON_VERSIONS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display versions
+        run: |
+          echo "Will build cache images for the following CRC versions:"
+          echo '${{ steps.get-versions.outputs.versions }}' | jq -r '.[]'
+
+  build-cache-images:
+    needs: discover-versions
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crc_version: ${{ fromJson(needs.discover-versions.outputs.versions) }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Check if image already exists
+        id: check-image
+        continue-on-error: true
+        run: |
+          set +e
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.crc_version }}"
+          
+          # Try to pull the manifest
+          if docker buildx imagetools inspect "$IMAGE_TAG" > /dev/null 2>&1; then
+            echo "Image already exists: $IMAGE_TAG"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Image does not exist: $IMAGE_TAG"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        if: steps.check-image.outputs.exists != 'true' || inputs.force_rebuild == true
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.crc_version }}
+            type=raw,value=latest,enable=${{ matrix.crc_version == needs.discover-versions.outputs.versions[0] }}
+
+      - name: Build and push cache image
+        if: steps.check-image.outputs.exists != 'true' || inputs.force_rebuild == true
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.cache
+          push: true
+          build-args: |
+            CRC_VERSION=${{ matrix.crc_version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image
+        if: steps.check-image.outputs.exists != 'true' || inputs.force_rebuild == true
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.crc_version }}"
+          echo "Verifying image: $IMAGE_TAG"
+          docker pull "$IMAGE_TAG"
+          docker run --rm "$IMAGE_TAG" /cache/extract.sh /tmp/test
+          echo "✅ Image verification successful"
+
+      - name: Skip build message
+        if: steps.check-image.outputs.exists == 'true' && inputs.force_rebuild != true
+        run: |
+          echo "⏭️  Skipping build for ${{ matrix.crc_version }} - image already exists"
+          echo "Use 'force_rebuild' input to rebuild anyway"
+
+  summary:
+    needs: [discover-versions, build-cache-images]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## CRC Cache Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Versions processed:** ${{ needs.discover-versions.outputs.versions }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.build-cache-images.result }}" == "success" ]; then
+            echo "✅ All cache images built successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️  Some cache images failed to build. Check job logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
