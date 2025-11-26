@@ -1,0 +1,89 @@
+# Multi-stage Dockerfile for caching CRC binary and bundle
+# Usage: docker build --build-arg CRC_VERSION=2.56.0 -f Dockerfile.cache -t quick-ocp-cache:2.56.0 .
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS downloader
+
+ARG CRC_VERSION
+ARG MIRROR_URL=https://mirror.openshift.com/pub/openshift-v4/clients/crc
+
+# Install dependencies
+RUN microdnf install -y curl tar gzip && microdnf clean all
+
+WORKDIR /cache
+
+# Download CRC binary
+RUN echo "Downloading CRC ${CRC_VERSION}..." && \
+    curl -L -f -o crc-linux-amd64.tar.xz \
+    "${MIRROR_URL}/${CRC_VERSION}/crc-linux-amd64.tar.xz" && \
+    echo "Download complete. Size: $(stat -c%s crc-linux-amd64.tar.xz) bytes"
+
+# Download CRC bundle (typically the largest file in the version directory)
+# Bundle naming pattern: crc_libvirt_*.crcbundle
+RUN echo "Discovering bundle file for CRC ${CRC_VERSION}..." && \
+    BUNDLE_FILE=$(curl -s "${MIRROR_URL}/${CRC_VERSION}/" | \
+    grep -oP 'crc_libvirt_[0-9.]+\.crcbundle' | head -1) && \
+    if [ -z "$BUNDLE_FILE" ]; then \
+        echo "ERROR: Could not find bundle file for version ${CRC_VERSION}"; \
+        exit 1; \
+    fi && \
+    echo "Found bundle: ${BUNDLE_FILE}" && \
+    curl -L -f -o bundle.crcbundle "${MIRROR_URL}/${CRC_VERSION}/${BUNDLE_FILE}" && \
+    echo "Bundle download complete. Size: $(stat -c%s bundle.crcbundle) bytes" && \
+    echo "${BUNDLE_FILE}" > bundle_name.txt
+
+# Verify downloads
+RUN ls -lh /cache && \
+    test -f crc-linux-amd64.tar.xz || (echo "ERROR: CRC binary missing" && exit 1) && \
+    test -f bundle.crcbundle || (echo "ERROR: Bundle missing" && exit 1)
+
+# Final minimal image
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+ARG CRC_VERSION
+LABEL name="quick-ocp-cache" \
+      version="${CRC_VERSION}" \
+      description="Cached CRC binary and bundle for quick-ocp GitHub Action" \
+      maintainer="Brandon Palm <bpalm@redhat.com>"
+
+RUN microdnf install -y tar gzip && microdnf clean all
+
+WORKDIR /cache
+
+# Copy downloaded files from builder
+COPY --from=downloader /cache/crc-linux-amd64.tar.xz .
+COPY --from=downloader /cache/bundle.crcbundle .
+COPY --from=downloader /cache/bundle_name.txt .
+
+# Create extraction script
+RUN cat > /cache/extract.sh << 'EOF'
+#!/bin/bash
+set -e
+
+DEST_DIR="${1:-.}"
+echo "Extracting CRC cache to ${DEST_DIR}..."
+
+# Extract CRC binary
+tar -xvf /cache/crc-linux-amd64.tar.xz -C "${DEST_DIR}"
+echo "CRC binary extracted"
+
+# Copy bundle with original name
+BUNDLE_NAME=$(cat /cache/bundle_name.txt)
+mkdir -p "${DEST_DIR}/bundle"
+cp /cache/bundle.crcbundle "${DEST_DIR}/bundle/${BUNDLE_NAME}"
+echo "Bundle copied as ${BUNDLE_NAME}"
+
+echo "Extraction complete!"
+EOF
+
+RUN chmod +x /cache/extract.sh
+
+# Verify and display metadata
+RUN ls -lh /cache && \
+    echo "=== CRC Cache Image Built ===" && \
+    echo "CRC Version: ${CRC_VERSION}" && \
+    echo "Bundle: $(cat /cache/bundle_name.txt)" && \
+    echo "Binary: $(stat -c%s /cache/crc-linux-amd64.tar.xz) bytes" && \
+    echo "Bundle: $(stat -c%s /cache/bundle.crcbundle) bytes"
+
+CMD ["/bin/bash", "-c", "cat /cache/bundle_name.txt && ls -lh /cache"]
+

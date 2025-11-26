@@ -1,0 +1,144 @@
+---
+name: Test Cache Failover
+
+on:
+  workflow_dispatch:
+    inputs:
+      crc_version:
+        description: 'CRC version to test (must exist in cache)'
+        required: false
+        type: string
+        default: '2.54.0'
+      simulate_mirror_failure:
+        description: 'Force cache usage (simulate mirror failure)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test-cache-download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Display test configuration
+        run: |
+          echo "================================================"
+          echo "Cache Failover Test Configuration"
+          echo "================================================"
+          echo "CRC Version: ${{ inputs.crc_version }}"
+          echo "Simulate Mirror Failure: ${{ inputs.simulate_mirror_failure }}"
+          echo "Cache Image: quay.io/bapalm/quick-ocp-cache:${{ inputs.crc_version }}"
+          echo ""
+          echo "This test will:"
+          if [ "${{ inputs.simulate_mirror_failure }}" = "true" ]; then
+            echo "  1. Skip mirror download (simulated failure)"
+            echo "  2. Download from cache at quay.io/bapalm/quick-ocp-cache:${{ inputs.crc_version }}"
+            echo "  3. Verify CRC binary works"
+          else
+            echo "  1. Try mirror first"
+            echo "  2. Fall back to cache if mirror fails"
+            echo "  3. Verify CRC binary works"
+          fi
+          echo "================================================"
+
+      - name: Test cache download script directly
+        run: |
+          echo ""
+          echo "========================================="
+          echo "TEST 1: Direct Cache Download"
+          echo "========================================="
+          ./scripts/download-from-cache.sh ${{ inputs.crc_version }}
+
+      - name: Verify CRC installation
+        run: |
+          echo ""
+          echo "========================================="
+          echo "Verifying CRC Installation"
+          echo "========================================="
+          which crc
+          crc version
+          echo ""
+          echo "✓ CRC binary is installed and working"
+
+      - name: Clean up for next test
+        run: |
+          sudo rm -f /usr/local/bin/crc
+
+      - name: Test full failover script
+        env:
+          SIMULATE_MIRROR_FAILURE: ${{ inputs.simulate_mirror_failure }}
+          CACHE_REGISTRY: quay.io
+          CACHE_IMAGE_NAME: bapalm/quick-ocp-cache
+        run: |
+          echo ""
+          echo "========================================="
+          echo "TEST 2: Full Failover Script"
+          echo "========================================="
+          ./scripts/download-install-crc-with-cache.sh ${{ inputs.crc_version }}
+
+      - name: Verify CRC installation (again)
+        run: |
+          echo ""
+          echo "========================================="
+          echo "Final Verification"
+          echo "========================================="
+          which crc
+          crc version
+          echo ""
+          echo "✓ All cache tests passed!"
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo ""
+          echo "================================================"
+          echo "Test Summary"
+          echo "================================================"
+          echo "CRC Version Tested: ${{ inputs.crc_version }}"
+          echo "Cache Image Used: quay.io/bapalm/quick-ocp-cache:${{ inputs.crc_version }}"
+          echo "Simulate Failure: ${{ inputs.simulate_mirror_failure }}"
+          echo ""
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Status: ✓ SUCCESS"
+            echo ""
+            echo "Cache failover is working correctly!"
+          else
+            echo "Status: ✗ FAILED"
+            echo ""
+            echo "Check logs above for details."
+          fi
+          echo "================================================"
+
+  test-cache-not-available:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test with non-existent cache version
+        continue-on-error: true
+        id: test_missing
+        run: |
+          echo "========================================="
+          echo "TEST: Cache Not Available Scenario"
+          echo "========================================="
+          echo "Testing with version 9.99.9 (should not exist)"
+          echo ""
+          ./scripts/download-from-cache.sh 9.99.9
+
+      - name: Verify expected failure
+        run: |
+          echo ""
+          echo "========================================="
+          echo "Verification"
+          echo "========================================="
+          if [ "${{ steps.test_missing.outcome }}" = "failure" ]; then
+            echo "✓ Script correctly failed for non-existent cache version"
+            echo "✓ Error handling is working as expected"
+          else
+            echo "✗ Script should have failed but didn't"
+            exit 1
+          fi
+
