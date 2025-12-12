@@ -70,7 +70,7 @@ runs:
       run: ${{ github.action_path }}/scripts/get-ocp-version.sh
 
     - name: Restore CRC bundles from the cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       if: ${{ inputs.bundleCache == 'true' }}
       id: restore-cache
       with:
@@ -156,7 +156,7 @@ runs:
       run: ${{ github.action_path }}/scripts/move-crc-bundles-to-temp.sh
 
     - name: Cache the crc bundles using github actions cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ inputs.bundleCache == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
       with:
         path: /home/runner/.crc/bundletmp
