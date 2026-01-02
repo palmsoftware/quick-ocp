@@ -22,6 +22,8 @@ jobs:
 
   run-ocp:
     needs: lint-scripts
+    # Skip for Dependabot PRs - secrets are not available
+    if: github.actor != 'dependabot[bot]'
     strategy:
       fail-fast: false
       matrix:
