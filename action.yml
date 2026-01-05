@@ -90,17 +90,11 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/create-swap.sh
 
-    - name: Free Disk Space (Ubuntu)
-      uses: jlumbroso/free-disk-space@main
+    - name: Optimize disk space and relocate Docker storage
+      uses: palmsoftware/quick-cleanup@v0
       with:
-        tool-cache: false
-        large-packages: true
-        android: true
-        dotnet: true
-        haskell: true
-        docker-images: true
-        swap-storage: false
-      continue-on-error: true
+        cleanup-mode: aggressive
+        minimum-free-space: 25
 
     - name: Install dependencies for specific Ubuntu versions
       shell: bash
@@ -114,13 +108,6 @@ runs:
     - name: Create /etc/docker/daemon.json
       shell: bash
       run: ${{ github.action_path }}/scripts/create-docker-daemon-json.sh
-
-    # Restart docker using /mnt/docker-storage (sdb) instead of /var/lib/docker (sda).
-    # This step needs to be done right after the partner repo's bootstrap scripts, as they
-    # overwrite the docker's daemon.json.
-    - name: Make docker to use /mnt (sdb) for storage
-      shell: bash
-      run: ${{ github.action_path }}/scripts/move-docker-storage.sh
 
     - name: reload the terminal to load the libvirt group
       shell: bash
@@ -162,9 +149,12 @@ runs:
         path: /home/runner/.crc/bundletmp
         key: ${{ steps.restore-cache.outputs.cache-primary-key }}
 
-    - name: Aggressive cleanup after CRC start
+    - name: Cleanup CRC bundle temp files
       shell: bash
-      run: ${{ github.action_path }}/scripts/aggressive-cleanup.sh
+      run: |
+        echo "=== Cleaning up CRC bundle temp files ==="
+        rm -rf /home/runner/.crc/bundletmp
+        echo "=== Cleanup complete ==="
       continue-on-error: true
 
     - name: Print the disk statistics
