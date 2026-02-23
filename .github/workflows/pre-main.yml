@@ -7,6 +7,8 @@ name: Test Changes
   pull_request:
     branches: [main]
 
+permissions: read-all
+
 jobs:
   lint-scripts:
     runs-on: ubuntu-latest
