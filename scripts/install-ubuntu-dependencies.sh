@@ -17,9 +17,6 @@ elif [[ "$UBUNTU_VERSION" == "24.04" ]]; then
   else
     echo "virtqemud.socket unit file does not exist. Skipping enable/start steps."
   fi
-elif [[ "$UBUNTU_VERSION" == "20.04" ]]; then
-  echo "Upgrading packages for Ubuntu 20.04"
-  sudo apt-get upgrade -y
 else
   echo "No specific dependencies for Ubuntu version $UBUNTU_VERSION"
 fi

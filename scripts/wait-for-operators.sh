@@ -5,8 +5,8 @@ elapsed=0
 interval=10
 
 while true; do
-  if oc get co --no-headers | awk '{if ($3 != "True" || $4 != "False") exit 1}'; then
-    echo "All operators are available and not progressing"
+  if oc get co --no-headers | awk '{if ($3 != "True" || $4 != "False" || $5 != "False") exit 1}'; then
+    echo "All operators are available, not progressing, and not degraded"
     break
   else
     echo "Waiting for operators to become available..."

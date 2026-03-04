@@ -3,4 +3,4 @@ set -e
 
 PULL_SECRET="$1"
 
-echo "$PULL_SECRET" >pull-secret.json
+(umask 077 && echo "$PULL_SECRET" >pull-secret.json)

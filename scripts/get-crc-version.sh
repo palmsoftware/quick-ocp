@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
 
-crc version
-echo $PATH
-VERSION_NUMBER=$(crc version | grep CRC | awk '{ print $3 }')
-echo $VERSION_NUMBER
-echo $(crc version | grep CRC | awk '{ print $3 }')
-echo "version_number=$(crc version | grep CRC | awk '{ print $3 }')" | tee "${GITHUB_OUTPUT}"
+CRC_OUTPUT=$(crc version)
+echo "$CRC_OUTPUT"
+VERSION_NUMBER=$(echo "$CRC_OUTPUT" | grep CRC | awk '{ print $3 }')
+echo "version_number=$VERSION_NUMBER" | tee "${GITHUB_OUTPUT}"
