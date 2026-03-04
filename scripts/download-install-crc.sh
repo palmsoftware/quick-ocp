@@ -40,7 +40,7 @@ if [ "$DOWNLOAD_SUCCESS" = false ]; then
   exit 1
 fi
 
-tar -xvf crc.tar.xz
+tar -xf crc.tar.xz
 if [ -d crc-linux-* ] && [ -f crc-linux-*/crc ]; then
   sudo mv crc-linux-*/crc /usr/local/bin
 else

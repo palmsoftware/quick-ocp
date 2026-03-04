@@ -109,20 +109,12 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/create-docker-daemon-json.sh
 
-    - name: reload the terminal to load the libvirt group
-      shell: bash
-      run: ${{ github.action_path }}/scripts/reload-terminal-libvirt.sh
-
-    - name: Check if user is part of libvirt group
-      shell: bash
-      run: ${{ github.action_path }}/scripts/check-libvirt-group.sh
-      
     - name: Write the pull secret to json file
       shell: bash
       run: ${{ github.action_path }}/scripts/write-pull-secret.sh "${{ inputs.ocpPullSecret }}"
         
     - name: Prompt the user if bundleCache is false
-      if: ${{ inputs.bundleCache == false }}
+      if: ${{ inputs.bundleCache != 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/prompt-bundle-cache-skip.sh
 
@@ -156,10 +148,6 @@ runs:
         rm -rf /home/runner/.crc/bundletmp
         echo "=== Cleanup complete ==="
       continue-on-error: true
-
-    - name: Print the disk statistics
-      shell: bash
-      run: ${{ github.action_path }}/scripts/print-disk-statistics.sh
 
     - name: Bootstrap the runner with kubectl and oc clients
       shell: bash
