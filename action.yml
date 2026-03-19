@@ -157,9 +157,9 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-node-ready.sh
 
-    - name: Scale down OpenShift Console components to save CPU
+    - name: Disable non-essential OpenShift operators to save resources
       shell: bash
-      run: ${{ github.action_path }}/scripts/scale-down-console.sh
+      run: ${{ github.action_path }}/scripts/scale-down-nonessential.sh
 
     - name: Set the adm policy
       shell: bash
