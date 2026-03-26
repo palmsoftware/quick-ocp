@@ -40,6 +40,10 @@ inputs:
     description: 'Disable the connectivity check for OpenShift Mirror'
     required: false
     default: 'false'
+  preloadImages:
+    description: 'Newline-separated list of container images to preload into the cluster registry'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -164,6 +168,11 @@ runs:
     - name: Set the adm policy
       shell: bash
       run: ${{ github.action_path }}/scripts/set-adm-policy.sh
+
+    - name: Preload container images into cluster registry
+      if: ${{ inputs.preloadImages != '' }}
+      shell: bash
+      run: ${{ github.action_path }}/scripts/preload-images.sh "${{ inputs.preloadImages }}"
 
     - name: Wait for operators to be available
       if: ${{ inputs.waitForOperatorsReady == 'true' }}

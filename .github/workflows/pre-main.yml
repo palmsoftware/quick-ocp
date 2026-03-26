@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: check if OCP_PULL_SECRET exists
-        env: 
+        env:
           super_secret: ${{ secrets.OCP_PULL_SECRET }}
         if: ${{ env.super_secret == '' }}
         run: 'echo the secret \"OCP_PULL_SECRET\" has not been made; echo please go to \"settings \> secrets \> actions\" to create it'
@@ -51,3 +51,32 @@ jobs:
           desiredOCPVersion: ${{ matrix.ocp }}
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+  test-preload-images:
+    # Skip for Dependabot PRs - secrets are not available
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v6
+
+      - name: Deploy OCP with preloaded images
+        uses: ./
+        with:
+          ocpPullSecret: $OCP_PULL_SECRET
+          bundleCache: true
+          desiredOCPVersion: 'latest'
+          preloadImages: |
+            docker.io/library/nginx:latest
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+      - name: Verify preloaded image exists as imagestream
+        run: |
+          echo "=== Checking for preloaded imagestream ==="
+          oc get imagestream nginx -n openshift -o jsonpath='{.metadata.name}'
+          echo ""
+          echo "=== Imagestream details ==="
+          oc get imagestream nginx -n openshift -o yaml
