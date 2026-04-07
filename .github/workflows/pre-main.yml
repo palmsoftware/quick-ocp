@@ -34,6 +34,13 @@ jobs:
     env:
       SHELL: /bin/bash
     steps:
+      - name: Check Red Hat Status
+        uses: palmsoftware/redhat-status@v0
+        with:
+          components: |
+            api.openshift.com
+            developers.redhat.com
+
       - name: Checkout the code
         uses: actions/checkout@v6
 
