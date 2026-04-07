@@ -38,7 +38,8 @@ jobs:
         uses: palmsoftware/redhat-status@v0
         with:
           components: |
-            Red Hat OpenShift Cluster Manager
+            api.openshift.com
+            developers.redhat.com
 
       - name: Checkout the code
         uses: actions/checkout@v6
