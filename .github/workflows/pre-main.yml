@@ -59,6 +59,42 @@ jobs:
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 
+  test-cluster-monitoring:
+    # Skip for Dependabot PRs - secrets are not available
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Check Red Hat Status
+        uses: palmsoftware/redhat-status@v0
+        with:
+          components: |
+            api.openshift.com
+            developers.redhat.com
+
+      - name: Checkout the code
+        uses: actions/checkout@v6
+
+      - name: Deploy OCP with cluster monitoring enabled
+        uses: ./
+        with:
+          ocpPullSecret: $OCP_PULL_SECRET
+          bundleCache: true
+          desiredOCPVersion: 'latest'
+          crcMemory: '14336'
+          enableClusterMonitoring: true
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+      - name: Verify monitoring stack is running
+        run: |
+          echo "=== Checking cluster monitoring pods ==="
+          oc get pods -n openshift-monitoring
+          echo "=== Verifying prometheus-k8s is running ==="
+          oc wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus -n openshift-monitoring --timeout=300s
+          echo "=== Cluster monitoring is operational ==="
+
   test-preload-images:
     # Skip for Dependabot PRs - secrets are not available
     if: github.actor != 'dependabot[bot]'
