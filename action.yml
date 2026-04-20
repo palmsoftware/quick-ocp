@@ -40,6 +40,10 @@ inputs:
     description: 'Disable the connectivity check for OpenShift Mirror'
     required: false
     default: 'false'
+  enableClusterMonitoring:
+    description: 'Enable the cluster monitoring stack (requires minimum 14GiB memory)'
+    required: false
+    default: 'false'
   preloadImages:
     description: 'Newline-separated list of container images to preload into the cluster registry'
     required: false
@@ -124,7 +128,7 @@ runs:
 
     - name: Start OpenShift Local
       shell: bash
-      run: ${{ github.action_path }}/scripts/configure-crc.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.crcDiskSize }}" "${{ inputs.enableTelemetry }}"
+      run: ${{ github.action_path }}/scripts/configure-crc.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.crcDiskSize }}" "${{ inputs.enableTelemetry }}" "${{ inputs.enableClusterMonitoring }}"
 
     - name: Run setup
       shell: bash
