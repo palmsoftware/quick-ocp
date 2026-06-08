@@ -91,7 +91,9 @@ jobs:
         run: |
           echo "=== Checking cluster monitoring pods ==="
           oc get pods -n openshift-monitoring
-          echo "=== Verifying prometheus-k8s is running ==="
+          echo "=== Waiting for prometheus-k8s pod to be created ==="
+          oc wait --for=create pod -l app.kubernetes.io/name=prometheus -n openshift-monitoring --timeout=300s
+          echo "=== Waiting for prometheus-k8s pod to be Ready ==="
           oc wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus -n openshift-monitoring --timeout=300s
           echo "=== Cluster monitoring is operational ==="
 
