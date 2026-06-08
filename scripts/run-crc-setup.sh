@@ -17,7 +17,7 @@ while [ $attempt -le $max_attempts ]; do
   start_output=$(sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug 2>&1) || true
   echo "$start_output"
 
-  if echo "$start_output" | grep -q "Cannot update kubeconfig"; then
+  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig"; then
     echo "WARNING: kubeconfig update failed during CRC start"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
