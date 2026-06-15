@@ -20,7 +20,14 @@ echo "=== Configuring CRC for minimal resource usage ==="
 crc config set cpus $CRC_CPU
 crc config set memory $CRC_MEMORY
 crc config set disk-size $CRC_DISK_SIZE
-crc config set consent-telemetry $ENABLE_TELEMETRY
+if [ "$ENABLE_TELEMETRY" = "true" ]; then
+  crc config set consent-telemetry yes
+elif [ "$ENABLE_TELEMETRY" = "false" ]; then
+  crc config set consent-telemetry no
+else
+  echo "WARNING: enableTelemetry='$ENABLE_TELEMETRY' is not 'true' or 'false', treating as false"
+  crc config set consent-telemetry no
+fi
 crc config set network-mode user
 
 if [ "$ENABLE_CLUSTER_MONITORING" = "true" ]; then
