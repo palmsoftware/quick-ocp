@@ -49,6 +49,23 @@ inputs:
     required: false
     default: ''
 
+outputs:
+  crc-version:
+    description: 'The CRC version used'
+    value: ${{ steps.crc_version_lookup.outputs.version_number }}
+  ocp-version:
+    description: 'The deployed OpenShift version'
+    value: ${{ steps.ocp_version_lookup.outputs.ocp_version }}
+  api-url:
+    description: 'The OpenShift API server URL'
+    value: ${{ steps.cluster_credentials.outputs.api-url }}
+  console-url:
+    description: 'The OpenShift web console URL'
+    value: ${{ steps.cluster_credentials.outputs.console-url }}
+  kubeadmin-password:
+    description: 'The kubeadmin password for cluster authentication'
+    value: ${{ steps.cluster_credentials.outputs.kubeadmin-password }}
+
 runs:
   using: 'composite'
   steps:
@@ -164,6 +181,11 @@ runs:
     - name: Wait until node is Ready state
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-node-ready.sh
+
+    - name: Get cluster credentials
+      id: cluster_credentials
+      shell: bash
+      run: ${{ github.action_path }}/scripts/get-cluster-credentials.sh
 
     - name: Disable non-essential OpenShift operators to save resources
       shell: bash
