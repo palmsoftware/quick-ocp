@@ -82,7 +82,7 @@ runs:
       if: ${{ inputs.bundleCache == 'true' }}
       id: restore-cache
       with:
-        path: /home/runner/.crc/bundletmp
+        path: ~/.crc/bundletmp
         key: ${{ runner.os }}-${{ runner.arch }}-crc-cache-${{ steps.crc_version_lookup.outputs.version_number }}
 
     - name: Copy the bundletmp to actual folder if cache hit
@@ -146,14 +146,14 @@ runs:
       uses: actions/cache/save@v5
       if: ${{ inputs.bundleCache == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
       with:
-        path: /home/runner/.crc/bundletmp
+        path: ~/.crc/bundletmp
         key: ${{ steps.restore-cache.outputs.cache-primary-key }}
 
     - name: Cleanup CRC bundle temp files
       shell: bash
       run: |
         echo "=== Cleaning up CRC bundle temp files ==="
-        rm -rf /home/runner/.crc/bundletmp
+        rm -rf ~/.crc/bundletmp
         echo "=== Cleanup complete ==="
       continue-on-error: true
 
