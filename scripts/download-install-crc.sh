@@ -3,6 +3,17 @@ set -e
 
 CRC_VERSION="$1"
 
+# Detect architecture
+case "$(uname -m)" in
+  x86_64) CRC_ARCH="amd64" ;;
+  aarch64 | arm64) CRC_ARCH="arm64" ;;
+  *)
+    echo "Unsupported architecture: $(uname -m)"
+    exit 1
+    ;;
+esac
+echo "Detected architecture: $CRC_ARCH"
+
 # Retry logic for downloading CRC
 MAX_RETRIES=3
 RETRY_COUNT=0
@@ -14,7 +25,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   # Remove any partial download from previous attempt
   rm -f crc.tar.xz
 
-  if curl -L -o crc.tar.xz "https://mirror.openshift.com/pub/openshift-v4/clients/crc/$CRC_VERSION/crc-linux-amd64.tar.xz"; then
+  if curl -L -o crc.tar.xz "https://mirror.openshift.com/pub/openshift-v4/clients/crc/$CRC_VERSION/crc-linux-$CRC_ARCH.tar.xz"; then
     # Verify the downloaded file is valid (should be larger than 1MB)
     FILE_SIZE=$(stat -c%s crc.tar.xz 2>/dev/null || stat -f%z crc.tar.xz 2>/dev/null || echo 0)
     if [ "$FILE_SIZE" -gt 1048576 ]; then
