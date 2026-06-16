@@ -20,11 +20,11 @@ sudo du -h --max-depth=2 / 2>/dev/null | grep -E '^[0-9.]+[GM]' | sort -hr | hea
 
 echo ""
 echo "=== CRC-Specific Disk Usage ==="
-if [ -d "/home/runner/.crc" ]; then
+if [ -d "$HOME/.crc" ]; then
   echo "CRC home directory:"
-  du -sh /home/runner/.crc/ 2>/dev/null || echo "Could not analyze CRC home directory"
+  du -sh "$HOME/.crc/" 2>/dev/null || echo "Could not analyze CRC home directory"
   echo "CRC symlinks:"
-  ls -la /home/runner/.crc/ 2>/dev/null || echo "Could not list CRC directory"
+  ls -la "$HOME/.crc/" 2>/dev/null || echo "Could not list CRC directory"
 fi
 
 if [ -d "/mnt/crc-cache" ]; then
