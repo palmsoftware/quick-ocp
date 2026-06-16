@@ -47,6 +47,33 @@ steps:
       OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 ```
 
+## Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `ocpPullSecret` | Pull secret for OpenShift Local | Yes | — |
+| `desiredOCPVersion` | OpenShift version to deploy (`4.18`, `4.19`, `4.20`, `4.21`, or `latest`) | No | `latest` |
+| `crcVersion` | Specific CRC version to use (overrides version detection and pinning) | No | — |
+| `bundleCache` | Cache the CRC bundles for faster startup | No | `false` |
+| `crcMemory` | Memory allocation in MB for OpenShift Local | No | `10752` |
+| `crcCpu` | CPU allocation for OpenShift Local | No | `4` |
+| `crcDiskSize` | Disk size in GB for OpenShift Local | No | `31` |
+| `waitForOperatorsReady` | Wait for all operators to be ready | No | `false` |
+| `enableClusterMonitoring` | Enable the cluster monitoring stack (auto-increases memory to 14GiB) | No | `false` |
+| `enableTelemetry` | Enable telemetry for OpenShift Local | No | `true` |
+| `disableConnectivityCheck` | Disable the connectivity check for OpenShift Mirror | No | `false` |
+| `preloadImages` | Newline-separated list of container images to preload into the cluster registry | No | — |
+
+## Outputs
+
+| Output | Description |
+|--------|-------------|
+| `ocp-version` | The deployed OpenShift version (e.g., `4.19.8`) |
+| `crc-version` | The CRC version used (e.g., `2.54.0`) |
+| `api-url` | The OpenShift API server URL (`https://api.crc.testing:6443`) |
+| `console-url` | The OpenShift web console URL |
+| `kubeadmin-password` | The kubeadmin password for cluster authentication (masked in logs) |
+
 # OpenShift Local
 
 https://developers.redhat.com/products/openshift-local/overview
