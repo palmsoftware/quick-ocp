@@ -35,16 +35,16 @@ Note: Disabling this check is not recommended as it may result in less clear err
 
 Basic Usage:
 
-You will need to supply your OCP Pull Secret as a Github Actions Secret.  Your pull secret can be acquired from [here](https://console.redhat.com/openshift/install/azure/aro-provisioned).  Click on "Download Pull Secret" and copy the contents into your secret.
+You will need to supply your OCP Pull Secret as a Github Actions Secret.  Your pull secret can be acquired from [here](https://console.redhat.com/openshift/install/pull-secret).  Click on "Download Pull Secret" and copy the contents into your secret.
 
-```
+```yaml
 steps:
   - name: Set up Quick-OCP
-    uses: palmsoftware/quick-ocp@v0.0.16
+    uses: palmsoftware/quick-ocp@v0.0.34
     with:
-          ocpPullSecret: $OCP_PULL_SECRET
-        env:
-          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+      ocpPullSecret: $OCP_PULL_SECRET
+    env:
+      OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 ```
 
 # OpenShift Local
