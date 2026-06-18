@@ -26,7 +26,7 @@ jobs:
             developers.redhat.com
 
       - name: Checkout the code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: check if OCP_PULL_SECRET exists
         env: 
