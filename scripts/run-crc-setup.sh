@@ -22,8 +22,8 @@ while [ $attempt -le $max_attempts ]; do
     break
   fi
 
-  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig"; then
-    echo "WARNING: kubeconfig update failed during CRC start (exit code $start_exit_code)"
+  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH"; then
+    echo "WARNING: CRC start failed with retryable error (exit code $start_exit_code)"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
       sudo -su $USER crc stop || true

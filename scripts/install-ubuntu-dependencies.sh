@@ -7,8 +7,8 @@ if [[ "$UBUNTU_VERSION" == "22.04" ]]; then
   echo "Installing specific dependencies for Ubuntu 22.04"
   sudo apt-get update
   sudo apt-get install -y qemu
-elif [[ "$UBUNTU_VERSION" == "24.04" ]]; then
-  echo "Installing specific dependencies for Ubuntu 24.04"
+elif [[ "$UBUNTU_VERSION" == "24.04" || "$UBUNTU_VERSION" == "26.04" ]]; then
+  echo "Installing specific dependencies for Ubuntu $UBUNTU_VERSION"
   sudo apt-get update
   sudo apt-get install -y virtiofsd libvirt-daemon-system libvirt-daemon-driver-qemu
   if systemctl list-unit-files | grep -q virtqemud.socket; then
