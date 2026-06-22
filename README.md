@@ -12,6 +12,14 @@ Read more about Github Actions runners [here](https://docs.github.com/en/actions
 
 If you are looking to quickly spawn Kubernetes in your Action runner, try [quick-k8s](https://github.com/palmsoftware/quick-k8s).
 
+# Supported Runners
+
+This action is tested on the following GitHub Actions runners:
+
+- `ubuntu-26.04`
+- `ubuntu-24.04`
+- `ubuntu-22.04`
+
 # Known Limitations:
 
 - This does not run correctly on `ubuntu-20.04` runners due to the version of `libvirt` available in the mirrors isn't the minimum version required by OpenShift Local.
