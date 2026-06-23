@@ -2,8 +2,12 @@
 set -e
 
 echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+echo 'KERNEL=="vhost-vsock", GROUP="kvm", MODE="0666"' | sudo tee -a /etc/udev/rules.d/99-kvm4all.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger --name-match=kvm
+sudo udevadm trigger --name-match=vhost-vsock 2>/dev/null || true
+sudo chmod 0666 /dev/kvm 2>/dev/null || true
+sudo chmod 0666 /dev/vhost-vsock 2>/dev/null || true
 sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system-x86
 sudo usermod -a -G kvm,libvirt $USER
 if ! groups $USER | grep -q libvirt; then
@@ -11,3 +15,6 @@ if ! groups $USER | grep -q libvirt; then
 else
   echo "User already in libvirt group"
 fi
+echo "=== KVM permissions check ==="
+ls -la /dev/kvm /dev/vhost-vsock 2>/dev/null || true
+id

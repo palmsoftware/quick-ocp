@@ -17,6 +17,15 @@ elif [[ "$UBUNTU_VERSION" == "24.04" ]]; then
   else
     echo "virtqemud.socket unit file does not exist. Skipping enable/start steps."
   fi
+elif [[ "$UBUNTU_VERSION" == "26.04" ]]; then
+  echo "Installing specific dependencies for Ubuntu 26.04"
+  sudo apt-get update
+  sudo apt-get install -y virtiofsd libvirt-daemon-system libvirt-daemon-driver-qemu qemu-system-x86
+  if systemctl list-unit-files | grep -q libvirtd.socket; then
+    sudo systemctl enable libvirtd.socket
+    sudo systemctl start libvirtd.socket
+  fi
+  sudo modprobe vhost_vsock || true
 else
   echo "No specific dependencies for Ubuntu version $UBUNTU_VERSION"
 fi
