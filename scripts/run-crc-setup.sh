@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# Use sg to pick up the libvirt group for the current process.
+# On ubuntu-26.04 the group is added at runtime and sudo -su doesn't pick it up.
+run_as_user() {
+  if groups | grep -q libvirt; then
+    "$@"
+  else
+    sg libvirt -c "$*"
+  fi
+}
+
 echo "=== Environment diagnostics ==="
 echo "Kernel: $(uname -r)"
 echo "Ubuntu: $(lsb_release -rs 2>/dev/null || echo unknown)"
@@ -19,7 +29,7 @@ df -h / /mnt 2>/dev/null | grep -v "^Filesystem" || df -h /
 echo ""
 
 echo "=== CRC preflight check ==="
-sudo -su "$USER" crc setup --check-only 2>&1 || true
+run_as_user crc setup --check-only 2>&1 || true
 
 # Start a background disk+process monitor during setup
 echo "=== Starting background monitor ==="
@@ -35,7 +45,7 @@ MONITOR_PID=$!
 
 echo "=== Running CRC setup (stock binary) ==="
 setup_exit=0
-sudo -su "$USER" crc setup --log-level debug --show-progressbars 2>&1 || setup_exit=$?
+run_as_user crc setup --log-level debug --show-progressbars 2>&1 || setup_exit=$?
 
 # Stop monitor
 kill $MONITOR_PID 2>/dev/null || true
@@ -69,7 +79,7 @@ if [ -n "$CRC_BINARY_OVERRIDE" ] && [ -f "$CRC_BINARY_OVERRIDE" ]; then
   "$SCRIPT_DIR/install-crc-binary-override.sh" "$CRC_BINARY_OVERRIDE"
 
   echo "=== Preflight check with override binary ==="
-  sudo -su "$USER" crc setup --check-only 2>&1 || true
+  run_as_user crc setup --check-only 2>&1 || true
 fi
 
 echo "=== Disk usage after CRC setup ==="
@@ -84,7 +94,7 @@ while [ $attempt -le $max_attempts ]; do
 
   start_exit_code=0
   start_log="/tmp/crc-start-attempt-${attempt}.log"
-  sudo -su "$USER" crc start --pull-secret-file pull-secret.json --log-level debug 2>&1 | tee "$start_log" || start_exit_code=$?
+  run_as_user crc start --pull-secret-file pull-secret.json --log-level debug 2>&1 | tee "$start_log" || start_exit_code=$?
   start_output=$(cat "$start_log")
 
   if [ $start_exit_code -eq 0 ]; then
@@ -93,7 +103,7 @@ while [ $attempt -le $max_attempts ]; do
 
   echo "=== Failure diagnostics (attempt $attempt) ==="
   echo "--- CRC status ---"
-  crc status 2>&1 || true
+  run_as_user crc status 2>&1 || true
   echo "--- Libvirt VMs ---"
   virsh --connect qemu:///system list --all 2>/dev/null || true
   echo "--- Listening sockets ---"
@@ -110,7 +120,7 @@ while [ $attempt -le $max_attempts ]; do
     echo "WARNING: CRC start failed with retryable error (exit code $start_exit_code)"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
-      sudo -su "$USER" crc stop || true
+      run_as_user crc stop || true
       sleep 10
       attempt=$((attempt + 1))
       continue

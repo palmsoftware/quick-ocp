@@ -5,9 +5,17 @@ timeout=900 # 15 minutes in seconds
 elapsed=0
 interval=10
 
+run_as_user() {
+  if groups | grep -q libvirt; then
+    "$@"
+  else
+    sg libvirt -c "$*"
+  fi
+}
+
 # Debug: show CRC status and connectivity
 echo "=== CRC status ==="
-crc status 2>&1 || true
+run_as_user crc status 2>&1 || true
 echo "=== DNS check ==="
 getent hosts api.crc.testing 2>&1 || echo "api.crc.testing: not resolving"
 echo "=== Connectivity check ==="
