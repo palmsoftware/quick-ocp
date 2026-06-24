@@ -88,11 +88,6 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/download-install-crc.sh "${{ steps.set_crc_version.outputs.crc_version }}"
 
-    - name: Install CRC binary override
-      if: ${{ inputs.crcBinaryOverridePath != '' }}
-      shell: bash
-      run: ${{ github.action_path }}/scripts/install-crc-binary-override.sh "${{ github.action_path }}/${{ inputs.crcBinaryOverridePath }}"
-
     - name: CRC version lookup from crc
       id: crc_version_lookup
       shell: bash
@@ -159,6 +154,8 @@ runs:
     - name: Run setup
       shell: bash
       run: ${{ github.action_path }}/scripts/run-crc-setup.sh
+      env:
+        CRC_BINARY_OVERRIDE: ${{ inputs.crcBinaryOverridePath != '' && format('{0}/{1}', github.action_path, inputs.crcBinaryOverridePath) || '' }}
 
     - name: Protect CRC/QEMU from OOM killer
       shell: bash
