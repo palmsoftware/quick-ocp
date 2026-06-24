@@ -1,9 +1,17 @@
 #!/bin/bash
 set -e
 
-timeout=600 # 10 minutes in seconds
+timeout=900 # 15 minutes in seconds
 elapsed=0
 interval=10
+
+# Debug: show CRC status and connectivity
+echo "=== CRC status ==="
+crc status 2>&1 || true
+echo "=== DNS check ==="
+getent hosts api.crc.testing 2>&1 || echo "api.crc.testing: not resolving"
+echo "=== Connectivity check ==="
+curl -sk --connect-timeout 5 https://api.crc.testing:6443 2>&1 | head -3 || true
 
 # Wait for cluster to be ready and accessible
 echo "Waiting for cluster to be accessible..."
