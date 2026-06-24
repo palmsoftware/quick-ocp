@@ -12,13 +12,45 @@ systemctl is-active NetworkManager 2>/dev/null && echo "NetworkManager: active" 
 echo "Devices:"
 ls -la /dev/kvm /dev/vhost-vsock /dev/vsock 2>/dev/null || echo "  some devices missing"
 echo "CRC binary: $(which crc) -> $(crc version 2>&1 | head -1)"
+echo "CRC cache dir:"
+ls -la ~/.crc/cache 2>/dev/null || echo "  not set up yet"
+echo "Disk before setup:"
+df -h / /mnt 2>/dev/null | grep -v "^Filesystem" || df -h /
 echo ""
 
 echo "=== CRC preflight check ==="
 sudo -su "$USER" crc setup --check-only 2>&1 || true
 
+# Start a background disk+process monitor during setup
+echo "=== Starting background monitor ==="
+(
+  while true; do
+    AVAIL=$(df -h / | awk 'NR==2{print $4}')
+    CRC_PROCS=$(pgrep -a "crc\|xz\|zstd\|tar\|qcow" 2>/dev/null | head -5 || echo "none")
+    echo "[MONITOR $(date +%H:%M:%S)] Disk avail: $AVAIL | Procs: $CRC_PROCS"
+    sleep 30
+  done
+) &
+MONITOR_PID=$!
+
 echo "=== Running CRC setup (stock binary) ==="
-sudo -su "$USER" crc setup --log-level debug --show-progressbars
+setup_exit=0
+sudo -su "$USER" crc setup --log-level debug --show-progressbars 2>&1 || setup_exit=$?
+
+# Stop monitor
+kill $MONITOR_PID 2>/dev/null || true
+wait $MONITOR_PID 2>/dev/null || true
+
+if [ $setup_exit -ne 0 ]; then
+  echo "=== CRC setup FAILED (exit code $setup_exit) ==="
+  echo "Disk after failed setup:"
+  df -h
+  echo "dmesg (last 20 lines):"
+  dmesg | tail -20 2>/dev/null || true
+  echo "OOM kills:"
+  dmesg | grep -i "oom\|killed process" 2>/dev/null || echo "  none found"
+  exit $setup_exit
+fi
 
 echo "=== Post-setup diagnostics ==="
 echo "Libvirt networks:"
@@ -27,6 +59,8 @@ echo "Libvirt storage pools:"
 virsh --connect qemu:///system pool-list --all 2>/dev/null || true
 echo "Systemd CRC units:"
 systemctl --user list-units 'crc-*' --no-pager 2>/dev/null || true
+echo "CRC cache contents:"
+ls -la ~/.crc/cache/ 2>/dev/null | head -10 || true
 echo ""
 
 # Swap in override binary after setup but before start
@@ -68,6 +102,8 @@ while [ $attempt -le $max_attempts ]; do
   journalctl --user -u crc-daemon --no-pager -n 50 2>/dev/null || true
   echo "--- dmesg (last 30 lines) ---"
   dmesg | tail -30 2>/dev/null || true
+  echo "--- OOM kills ---"
+  dmesg | grep -i "oom\|killed process" 2>/dev/null || echo "  none found"
   echo ""
 
   if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH"; then
