@@ -48,6 +48,10 @@ inputs:
     description: 'Newline-separated list of container images to preload into the cluster registry'
     required: false
     default: ''
+  crcBinaryOverrideTag:
+    description: 'GitHub release tag to download a custom CRC binary from (repo is this repo)'
+    required: false
+    default: ''
 
 outputs:
   crc-version:
@@ -83,6 +87,11 @@ runs:
     - name: Download and Install OpenShift Local Binary
       shell: bash
       run: ${{ github.action_path }}/scripts/download-install-crc.sh "${{ steps.set_crc_version.outputs.crc_version }}"
+
+    - name: Install CRC binary override
+      if: ${{ inputs.crcBinaryOverrideTag != '' }}
+      shell: bash
+      run: ${{ github.action_path }}/scripts/install-crc-binary-override.sh "${{ inputs.crcBinaryOverrideTag }}" "${{ github.repository }}"
 
     - name: CRC version lookup from crc
       id: crc_version_lookup

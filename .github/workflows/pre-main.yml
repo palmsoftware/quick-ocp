@@ -50,15 +50,13 @@ jobs:
         if: ${{ env.super_secret == '' }}
         run: 'echo the secret \"OCP_PULL_SECRET\" has not been made; echo please go to \"settings \> secrets \> actions\" to create it'
 
-      - name: Setup tmate debug session
-        uses: mxschmitt/action-tmate@v3
-
       - name: Run the action
         uses: ./
         with:
           ocpPullSecret: $OCP_PULL_SECRET
           bundleCache: true
           desiredOCPVersion: ${{ matrix.ocp }}
+          crcBinaryOverrideTag: crc-test-checkonly
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 
