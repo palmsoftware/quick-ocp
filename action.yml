@@ -48,8 +48,8 @@ inputs:
     description: 'Newline-separated list of container images to preload into the cluster registry'
     required: false
     default: ''
-  crcBinaryOverrideTag:
-    description: 'GitHub release tag to download a custom CRC binary from (repo is this repo)'
+  crcBinaryOverridePath:
+    description: 'Path to a custom CRC binary to use instead of the downloaded one (relative to repo root)'
     required: false
     default: ''
 
@@ -89,9 +89,9 @@ runs:
       run: ${{ github.action_path }}/scripts/download-install-crc.sh "${{ steps.set_crc_version.outputs.crc_version }}"
 
     - name: Install CRC binary override
-      if: ${{ inputs.crcBinaryOverrideTag != '' }}
+      if: ${{ inputs.crcBinaryOverridePath != '' }}
       shell: bash
-      run: ${{ github.action_path }}/scripts/install-crc-binary-override.sh "${{ inputs.crcBinaryOverrideTag }}" "${{ github.repository }}"
+      run: ${{ github.action_path }}/scripts/install-crc-binary-override.sh "${{ github.action_path }}/${{ inputs.crcBinaryOverridePath }}"
 
     - name: CRC version lookup from crc
       id: crc_version_lookup

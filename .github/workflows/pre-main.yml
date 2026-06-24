@@ -56,7 +56,7 @@ jobs:
           ocpPullSecret: $OCP_PULL_SECRET
           bundleCache: true
           desiredOCPVersion: ${{ matrix.ocp }}
-          crcBinaryOverrideTag: crc-test-checkonly
+          crcBinaryOverridePath: bin/crc-linux-amd64
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 

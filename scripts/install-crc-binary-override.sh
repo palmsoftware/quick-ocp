@@ -1,34 +1,27 @@
 #!/bin/bash
 set -e
 
-RELEASE_TAG="$1"
-REPO="$2"
+BINARY_PATH="$1"
 
-if [ -z "$RELEASE_TAG" ] || [ -z "$REPO" ]; then
-  echo "Usage: install-crc-binary-override.sh <release-tag> <repo>"
+if [ -z "$BINARY_PATH" ] || [ ! -f "$BINARY_PATH" ]; then
+  echo "Usage: install-crc-binary-override.sh <path-to-binary>"
+  echo "Binary not found: $BINARY_PATH"
   exit 1
 fi
 
 echo "=== Installing CRC binary override ==="
-echo "Release: $RELEASE_TAG from $REPO"
+echo "Source: $BINARY_PATH"
 
-echo "--- Backing up stock CRC binary ---"
-sudo cp /usr/local/bin/crc /usr/local/bin/crc.stock
-echo "Stock CRC version:"
-/usr/local/bin/crc.stock version
+echo "--- Stock CRC version ---"
+crc version 2>&1 || echo "(not installed yet)"
 
-echo "--- Downloading override binary ---"
-gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "crc-linux-amd64" --dir /tmp --clobber
-sudo install -m 755 /tmp/crc-linux-amd64 /usr/local/bin/crc
-rm -f /tmp/crc-linux-amd64
+echo "--- Installing override binary ---"
+sudo install -m 755 "$BINARY_PATH" /usr/local/bin/crc
 
 echo "--- Override CRC version ---"
 crc version
 
 echo "--- Re-applying vsock capabilities ---"
 sudo setcap cap_net_bind_service=+eip /usr/local/bin/crc 2>/dev/null || true
-
-echo "--- Running enhanced preflight check ---"
-crc setup --check-only 2>&1 || true
 
 echo "=== CRC binary override complete ==="
