@@ -92,6 +92,18 @@ verify_connectivity "after switch" || {
   }
 }
 
+# Wait for NM to fully stabilize — CRC needs NM fully managing the interface
+echo "--- Waiting for NetworkManager to fully connect ---"
+for i in $(seq 1 30); do
+  NM_STATE=$(nmcli -t -f STATE general 2>/dev/null || echo "unknown")
+  if [ "$NM_STATE" = "connected" ]; then
+    echo "NetworkManager state: connected"
+    break
+  fi
+  echo "NetworkManager state: $NM_STATE (waiting...)"
+  sleep 2
+done
+
 echo "--- Verifying systemd-networkd is stopped ---"
 if systemctl is-active --quiet systemd-networkd; then
   echo "WARNING: systemd-networkd is still running"

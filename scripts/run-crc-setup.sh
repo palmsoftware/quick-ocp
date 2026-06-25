@@ -116,7 +116,7 @@ while [ $attempt -le $max_attempts ]; do
   sudo dmesg | grep -i "oom\|killed process" 2>/dev/null || echo "  none found"
   echo ""
 
-  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH\|Unable to determine VM"; then
+  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH\|Unable to determine"; then
     echo "WARNING: CRC start failed with retryable error (exit code $start_exit_code)"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
