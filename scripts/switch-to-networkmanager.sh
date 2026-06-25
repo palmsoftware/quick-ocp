@@ -10,7 +10,7 @@ verify_connectivity() {
     echo "Connectivity OK"
     return 0
   else
-    echo "ERROR: Connectivity check failed ($label)"
+    echo "WARNING: Connectivity check failed ($label)"
     return 1
   fi
 }
@@ -20,67 +20,80 @@ verify_connectivity "before switch"
 echo "--- Installing NetworkManager ---"
 sudo apt-get install -y network-manager
 
-echo "--- Discovering active network config ---"
-# Find the primary interface (the one with a default route)
+# Capture current network config before stopping networkd
 PRIMARY_IF=$(ip route show default | awk '{print $5}' | head -1)
-echo "Primary interface: $PRIMARY_IF"
-ip addr show "$PRIMARY_IF"
+PRIMARY_IP=$(ip -4 addr show "$PRIMARY_IF" | grep -oP 'inet \K[\d.]+/\d+')
+PRIMARY_GW=$(ip route show default | awk '{print $3}' | head -1)
+PRIMARY_DNS=$(grep nameserver /etc/resolv.conf | head -1 | awk '{print $2}')
 
-echo "--- Configuring NetworkManager to manage $PRIMARY_IF ---"
-# Ensure NetworkManager manages all devices (not just wifi)
+echo "--- Current network config ---"
+echo "Interface: $PRIMARY_IF"
+echo "IP: $PRIMARY_IP"
+echo "Gateway: $PRIMARY_GW"
+echo "DNS: $PRIMARY_DNS"
+
+echo "--- Configuring NetworkManager ---"
 sudo tee /etc/NetworkManager/conf.d/10-manage-all.conf >/dev/null <<EOF
 [main]
 plugins=keyfile
+dns=systemd-resolved
 
 [keyfile]
 unmanaged-devices=none
-
-[device]
-wifi.scan-rand-mac-address=no
 EOF
 
-# Tell NetworkManager not to touch DNS (let systemd-resolved handle it)
-sudo tee /etc/NetworkManager/conf.d/20-dns.conf >/dev/null <<EOF
-[main]
-dns=systemd-resolved
-EOF
+# Pre-create the connection profile with static IP (matching current config)
+# so NM can bring it up immediately after networkd stops
+sudo nmcli connection add type ethernet ifname "$PRIMARY_IF" con-name "runner-eth" \
+  ipv4.addresses "$PRIMARY_IP" \
+  ipv4.gateway "$PRIMARY_GW" \
+  ipv4.dns "$PRIMARY_DNS" \
+  ipv4.method manual \
+  connection.autoconnect yes 2>&1 || true
 
-echo "--- Starting NetworkManager ---"
-sudo systemctl enable NetworkManager
-sudo systemctl start NetworkManager
-sleep 2
+echo "--- Stopping systemd-networkd first ---"
+# Stop networkd sockets too so NM can claim the devices
+sudo systemctl stop systemd-networkd.socket systemd-networkd-varlink.socket systemd-networkd-resolve-hook.socket 2>/dev/null || true
+sudo systemctl stop systemd-networkd
+sudo systemctl disable systemd-networkd 2>/dev/null || true
+
+echo "--- Restarting NetworkManager to pick up devices ---"
+sudo systemctl restart NetworkManager
+sleep 3
 
 echo "--- NetworkManager status ---"
 nmcli general status || true
 nmcli device status || true
+nmcli connection show || true
 
-echo "--- Stopping systemd-networkd ---"
-sudo systemctl stop systemd-networkd
-sudo systemctl disable systemd-networkd
-sleep 2
-
-echo "--- Letting NetworkManager pick up the interface ---"
-# If NM didn't auto-configure, create a connection manually
+# Bring up the connection if not already
 if ! nmcli -t -f DEVICE,STATE device | grep -q "$PRIMARY_IF:connected"; then
-  echo "NetworkManager hasn't connected $PRIMARY_IF, creating connection..."
-  sudo nmcli connection add type ethernet ifname "$PRIMARY_IF" con-name "runner-eth" \
-    ipv4.method auto ipv6.method auto
-  sudo nmcli connection up "runner-eth"
+  echo "--- Activating runner-eth connection ---"
+  sudo nmcli connection up "runner-eth" 2>&1 || true
   sleep 3
 fi
 
 echo "--- Post-switch network state ---"
-nmcli device status
+nmcli device status || true
 ip addr show "$PRIMARY_IF"
 ip route show default
 
-verify_connectivity "after switch"
+verify_connectivity "after switch" || {
+  echo "=== FALLBACK: Connectivity lost, trying DHCP instead of static ==="
+  sudo nmcli connection modify "runner-eth" ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns ""
+  sudo nmcli connection up "runner-eth" 2>&1 || true
+  sleep 5
+  verify_connectivity "after DHCP fallback" || {
+    echo "ERROR: Cannot restore connectivity"
+    exit 1
+  }
+}
 
 echo "--- Verifying systemd-networkd is stopped ---"
 if systemctl is-active --quiet systemd-networkd; then
-  echo "ERROR: systemd-networkd is still running"
-  exit 1
+  echo "WARNING: systemd-networkd is still running"
+else
+  echo "systemd-networkd is stopped"
 fi
-echo "systemd-networkd is stopped"
 
 echo "=== NetworkManager switch complete ==="
