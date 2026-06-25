@@ -98,6 +98,14 @@ while [ $attempt -le $max_attempts ]; do
   sudo -su "$USER" crc status 2>&1 || true
   echo "--- Libvirt VMs ---"
   virsh --connect qemu:///system list --all 2>/dev/null || true
+  echo "--- Libvirt networks ---"
+  virsh --connect qemu:///system net-list --all 2>/dev/null || true
+  echo "--- Libvirt network crc info ---"
+  virsh --connect qemu:///system net-info crc 2>/dev/null || true
+  virsh --connect qemu:///system net-dhcp-leases crc 2>/dev/null || true
+  echo "--- NetworkManager status ---"
+  nmcli device status 2>/dev/null || true
+  nmcli connection show 2>/dev/null || true
   echo "--- Listening sockets ---"
   ss -tlnp 2>/dev/null | head -20 || true
   echo "--- CRC daemon journal ---"
@@ -108,7 +116,7 @@ while [ $attempt -le $max_attempts ]; do
   sudo dmesg | grep -i "oom\|killed process" 2>/dev/null || echo "  none found"
   echo ""
 
-  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH"; then
+  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH\|Unable to determine VM"; then
     echo "WARNING: CRC start failed with retryable error (exit code $start_exit_code)"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
