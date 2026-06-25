@@ -32,6 +32,21 @@ else
   echo "=== vsock namespace sysctls not present (kernel < 7.0) ==="
 fi
 
+# Ubuntu 26.04 runners have a broken nftables firewall driver that can cause
+# connection resets on loopback traffic (actions/runner-images#14230).
+# Switch to iptables and flush nftables rules.
+if command -v nft >/dev/null 2>&1; then
+  echo "=== Fixing nftables firewall for ubuntu-26.04 ==="
+  echo "nftables rules before flush:"
+  sudo nft list ruleset 2>/dev/null | head -30 || true
+  sudo nft flush ruleset 2>/dev/null || true
+  echo "nftables rules after flush: (should be empty)"
+  sudo nft list ruleset 2>/dev/null | head -10 || true
+  # Also set container firewall to iptables per actions/runner-images#14230
+  sudo mkdir -p /etc/containers/containers.conf.d
+  printf '[network]\nfirewall_driver = "iptables"\n' | sudo tee /etc/containers/containers.conf.d/99-fix-firewall.conf
+fi
+
 echo "=== KVM permissions check ==="
 ls -la /dev/kvm /dev/vhost-vsock 2>/dev/null || true
 id
