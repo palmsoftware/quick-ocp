@@ -26,10 +26,6 @@ elif [[ "$UBUNTU_VERSION" == "26.04" ]]; then
     sudo systemctl start libvirtd.socket
   fi
   sudo modprobe vhost_vsock || true
-  # Switch to NetworkManager for CRC system networking mode
-  # (vsock/user mode is broken on kernel 7.0)
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  "$SCRIPT_DIR/switch-to-networkmanager.sh"
 else
   echo "No specific dependencies for Ubuntu version $UBUNTU_VERSION"
 fi

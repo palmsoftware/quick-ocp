@@ -15,6 +15,23 @@ if ! groups $USER | grep -q libvirt; then
 else
   echo "User already in libvirt group"
 fi
+
+# Kernel 7.0 added network namespace support to AF_VSOCK. If child_ns_mode
+# is set to "local", vsock connections from outside a namespace get
+# "connection reset by peer" — which breaks CRC's gvisor-tap-vsock SSH tunnel.
+# Force global mode before any child namespaces are created (write-once sysctl).
+if [ -f /proc/sys/net/vsock/child_ns_mode ]; then
+  CURRENT_MODE=$(cat /proc/sys/net/vsock/child_ns_mode)
+  echo "=== vsock namespace mode: child_ns_mode=$CURRENT_MODE ==="
+  if [ "$CURRENT_MODE" != "global" ]; then
+    echo "Setting child_ns_mode to global for CRC vsock compatibility"
+    echo global | sudo tee /proc/sys/net/vsock/child_ns_mode || echo "WARNING: Failed to set child_ns_mode (may already be locked)"
+  fi
+  echo "ns_mode=$(cat /proc/sys/net/vsock/ns_mode 2>/dev/null || echo 'N/A')"
+else
+  echo "=== vsock namespace sysctls not present (kernel < 7.0) ==="
+fi
+
 echo "=== KVM permissions check ==="
 ls -la /dev/kvm /dev/vhost-vsock 2>/dev/null || true
 id
