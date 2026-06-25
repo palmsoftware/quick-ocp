@@ -29,7 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-26.04]
-        ocp: ['4.20', '4.21']
+        ocp: ['latest']
     runs-on: ${{ matrix.os }}
     env:
       SHELL: /bin/bash
@@ -56,7 +56,7 @@ jobs:
           ocpPullSecret: $OCP_PULL_SECRET
           bundleCache: true
           desiredOCPVersion: ${{ matrix.ocp }}
-          crcBinaryOverridePath: ${{ matrix.ocp == '4.21' && 'bin/crc-linux-amd64' || '' }}
+          crcBinaryOverridePath: ''
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 

@@ -28,7 +28,13 @@ else
   echo "WARNING: enableTelemetry='$ENABLE_TELEMETRY' is not 'true' or 'false', treating as false"
   crc config set consent-telemetry no
 fi
-crc config set network-mode user
+UBUNTU_VERSION=$(lsb_release -rs 2>/dev/null || echo "unknown")
+if [[ "$UBUNTU_VERSION" == "26.04" ]]; then
+  echo "=== Using system networking mode (kernel 7.0 vsock workaround) ==="
+  crc config set network-mode system
+else
+  crc config set network-mode user
+fi
 
 if [ "$ENABLE_CLUSTER_MONITORING" = "true" ]; then
   echo "=== Enabling cluster monitoring stack ==="
