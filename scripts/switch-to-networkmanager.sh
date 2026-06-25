@@ -51,11 +51,14 @@ sudo nmcli connection add type ethernet ifname "$PRIMARY_IF" con-name "runner-et
   ipv4.method manual \
   connection.autoconnect yes 2>&1 || true
 
-echo "--- Stopping systemd-networkd first ---"
-# Stop networkd sockets too so NM can claim the devices
+echo "--- Stopping and masking systemd-networkd ---"
+# Must stop sockets AND mask the service to prevent socket activation from restarting it.
+# CRC's preflight check uses 'systemctl status systemd-networkd.service' and rejects it.
 sudo systemctl stop systemd-networkd.socket systemd-networkd-varlink.socket systemd-networkd-resolve-hook.socket 2>/dev/null || true
+sudo systemctl disable systemd-networkd.socket systemd-networkd-varlink.socket systemd-networkd-resolve-hook.socket 2>/dev/null || true
 sudo systemctl stop systemd-networkd
 sudo systemctl disable systemd-networkd 2>/dev/null || true
+sudo systemctl mask systemd-networkd 2>/dev/null || true
 
 echo "--- Restarting NetworkManager to pick up devices ---"
 sudo systemctl restart NetworkManager
