@@ -22,7 +22,7 @@ echo "Desired OCP Version: $DESIRED_OCP_VERSION"
 # If an explicit CRC version is provided, use it directly
 if [ -n "$EXPLICIT_CRC_VERSION" ]; then
   echo "✓ Using explicitly specified CRC version: $EXPLICIT_CRC_VERSION"
-  echo "crc_version=$EXPLICIT_CRC_VERSION" | tee "$GITHUB_OUTPUT"
+  echo "crc_version=$EXPLICIT_CRC_VERSION" >>"$GITHUB_OUTPUT"
   exit 0
 fi
 
@@ -42,7 +42,7 @@ if [ -f "$VERSION_PINS_FILE" ]; then
     fi
 
     CRC_VERSION="$PINNED_VERSION"
-    echo "crc_version=$CRC_VERSION" | tee "$GITHUB_OUTPUT"
+    echo "crc_version=$CRC_VERSION" >>"$GITHUB_OUTPUT"
     exit 0
   else
     echo "No pinned version found for OCP $DESIRED_OCP_VERSION, using default behavior..."
@@ -52,7 +52,7 @@ else
 fi
 
 if [ "$DESIRED_OCP_VERSION" = "latest" ]; then
-  echo "crc_version=latest" | tee "$GITHUB_OUTPUT"
+  echo "crc_version=latest" >>"$GITHUB_OUTPUT"
 else
   # Only allow OCP versions 4.18 and above
   if [[ ! "$DESIRED_OCP_VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]] && [[ "$DESIRED_OCP_VERSION" != "latest" ]]; then
@@ -73,5 +73,5 @@ else
   if [[ $CRC_VERSION == "latest" ]]; then
     echo "Using latest CRC version due to API fallback"
   fi
-  echo "crc_version=$CRC_VERSION" | tee "$GITHUB_OUTPUT"
+  echo "crc_version=$CRC_VERSION" >>"$GITHUB_OUTPUT"
 fi

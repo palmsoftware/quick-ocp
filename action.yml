@@ -136,7 +136,9 @@ runs:
 
     - name: Write the pull secret to json file
       shell: bash
-      run: ${{ github.action_path }}/scripts/write-pull-secret.sh "${{ inputs.ocpPullSecret }}"
+      run: |
+        export PULL_SECRET="${{ inputs.ocpPullSecret }}"
+        ${{ github.action_path }}/scripts/write-pull-secret.sh
         
     - name: Prompt the user if bundleCache is false
       if: ${{ inputs.bundleCache != 'true' }}
