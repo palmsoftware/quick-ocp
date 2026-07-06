@@ -7,8 +7,13 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run-ocp:
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

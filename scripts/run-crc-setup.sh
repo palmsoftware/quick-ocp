@@ -1,5 +1,7 @@
 #!/bin/bash
-set -e
+set -eo pipefail
+
+trap 'rm -f pull-secret.json' EXIT
 
 echo "=== CRC preflight check ==="
 sudo -su $USER crc setup --check-only 2>&1 || true
@@ -40,9 +42,6 @@ while [ $attempt -le $max_attempts ]; do
   echo "ERROR: CRC start failed (exit code $start_exit_code) on attempt $attempt of $max_attempts"
   exit 1
 done
-
-# Clean up pull secret immediately after use
-rm -f pull-secret.json
 
 echo "=== Disk usage after CRC start ==="
 df -h

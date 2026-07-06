@@ -9,6 +9,10 @@ name: Test Changes
 
 permissions: read-all
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-scripts:
     runs-on: ubuntu-latest
@@ -23,6 +27,7 @@ jobs:
         run: make lint
 
   run-ocp:
+    timeout-minutes: 45
     # Skip for Dependabot PRs - secrets are not available
     if: github.actor != 'dependabot[bot]'
     strategy:
@@ -60,6 +65,7 @@ jobs:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 
   test-cluster-monitoring:
+    timeout-minutes: 60
     # Skip for Dependabot PRs - secrets are not available
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
@@ -98,6 +104,7 @@ jobs:
           echo "=== Cluster monitoring is operational ==="
 
   test-preload-images:
+    timeout-minutes: 45
     # Skip for Dependabot PRs - secrets are not available
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
