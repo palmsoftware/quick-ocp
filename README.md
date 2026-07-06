@@ -60,7 +60,7 @@ steps:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `ocpPullSecret` | Pull secret for OpenShift Local | Yes | — |
-| `desiredOCPVersion` | OpenShift version to deploy (`4.18`, `4.19`, `4.20`, `4.21`, or `latest`) | No | `latest` |
+| `desiredOCPVersion` | OpenShift version to deploy (`4.18`, `4.19`, `4.20`, `4.21`, `4.22`, or `latest`) | No | `latest` |
 | `crcVersion` | Specific CRC version to use (overrides version detection and pinning) | No | — |
 | `bundleCache` | Cache the CRC bundles for faster startup | No | `false` |
 | `crcMemory` | Memory allocation in MB for OpenShift Local | No | `10752` |
@@ -102,7 +102,7 @@ with:
 ```
 
 - The default is `latest`, which will use the most recent supported version.  If you leave `desiredOCPVersion` blank, you will get the latest version.
-- Supported values are `4.18`, `4.19`, `4.20`, `4.21`, and `latest`.
+- Supported values are `4.18`, `4.19`, `4.20`, `4.21`, `4.22`, and `latest`.
 
 **Note:** YAML parsers interpret `4.20` as a floating-point number and convert it to `4.2`. The action automatically normalizes this back to `4.20`, so you don't need to quote version numbers in your workflow files.
 
@@ -128,7 +128,8 @@ To ensure stability and avoid issues with specific CRC releases, this action use
     "4.18": "auto",
     "4.19": "2.54.0",
     "4.20": "auto",
-    "4.21": "auto"
+    "4.21": "auto",
+    "4.22": "auto"
   },
   "known_issues": {
     "4.19": {
@@ -140,7 +141,7 @@ To ensure stability and avoid issues with specific CRC releases, this action use
 }
 ```
 
-**Note:** Versions set to `"auto"` (latest, 4.18, 4.20, 4.21) automatically fetch the latest compatible CRC version from GitHub API. Only 4.19 is pinned to 2.54.0 to avoid the certificate issue in 2.55.x.
+**Note:** Versions set to `"auto"` (latest, 4.18, 4.20, 4.21, 4.22) automatically fetch the latest compatible CRC version from GitHub API. Only 4.19 is pinned to 2.54.0 to avoid the certificate issue in 2.55.x.
 
 ### Explicit CRC Version Override
 
