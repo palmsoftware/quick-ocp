@@ -44,6 +44,10 @@ inputs:
     description: 'Enable the cluster monitoring stack (requires minimum 14GiB memory)'
     required: false
     default: 'false'
+  operatorTimeout:
+    description: 'Timeout in seconds for waiting for operators to become ready'
+    required: false
+    default: '600'
   preloadImages:
     description: 'Newline-separated list of container images to preload into the cluster registry'
     required: false
@@ -205,7 +209,7 @@ runs:
     - name: Wait for operators to be available
       if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
-      run: ${{ github.action_path }}/scripts/wait-for-operators.sh
+      run: ${{ github.action_path }}/scripts/wait-for-operators.sh "${{ inputs.operatorTimeout }}"
 
     - name: Comprehensive Disk Space Report
       shell: bash
