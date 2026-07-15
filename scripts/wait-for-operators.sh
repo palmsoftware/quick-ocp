@@ -15,9 +15,9 @@ while true; do
     break
   else
     echo "Waiting for operators to become available..."
-    sleep $interval
+    sleep "$interval"
     elapsed=$((elapsed + interval))
-    if [ $elapsed -ge $timeout ]; then
+    if [ "$elapsed" -ge "$timeout" ]; then
       echo "Timeout reached: Not all operators are available"
       exit 1
     fi

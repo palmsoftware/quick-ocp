@@ -77,6 +77,7 @@ fi
 
 echo ""
 echo "=== Largest Files (top 10) ==="
+# shellcheck disable=SC2016
 find / -type f -size +100M 2>/dev/null | head -10 | xargs -I {} sh -c 'echo "$(du -h "{}" 2>/dev/null | cut -f1) {}"' 2>/dev/null || echo "Could not analyze large files"
 
 echo ""

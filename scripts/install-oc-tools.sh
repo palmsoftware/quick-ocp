@@ -18,7 +18,7 @@ fi
 MIRROR_DOMAIN='https://mirror.openshift.com'
 USEROVERRIDE=false
 
-if [ -z ${ARCH} ]; then
+if [ -z "${ARCH}" ]; then
   ARCH=$(uname -m)
   if [ "${ARCH}" == 'x86_64' ]; then
     MIRROR_PATH='/pub/openshift-v4/x86_64/clients'
@@ -55,6 +55,7 @@ setup() {
   # Allow user overrides
   if [ -f "${OCTOOLSRC}" ]; then
     echo ".octoolsrc file detected, overriding defaults..."
+    # shellcheck source=/dev/null
     source "${OCTOOLSRC}"
     USEROVERRIDE=true
     if [ ! -d "${BIN_PATH}" ]; then
@@ -125,7 +126,7 @@ check_root() {
 check_prereq() {
 
   #Check for wget
-  if [ ! $(command -v wget) ]; then
+  if [ ! "$(command -v wget)" ]; then
     echo "wget not found. Please install wget."
     exit 1
   fi
@@ -269,7 +270,7 @@ release() {
   if [[ $1 =~ ^4+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Specific version specified. Downloading that version."
     printf "\n"
-    version $1
+    version "$1"
     exit 0
   fi
 
@@ -351,16 +352,16 @@ nightly() {
 
 download() {
 
-  echo -n "Downloading $(echo $1 | awk -F/ '{ print $NF }'):    "
-  wget --progress=dot "$1" -O "/tmp/$(echo $1 | awk -F/ '{ print $NF }')" 2>&1 |
+  echo -n "Downloading $(echo "$1" | awk -F/ '{ print $NF }'):    "
+  wget --progress=dot "$1" -O "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" 2>&1 |
     grep --line-buffered "%" |
     sed -e "s,\.,,g" |
     awk '{printf("\b\b\b\b%4s", $2)}'
   echo -ne "\b\b\b\b"
   echo " Download Complete."
 
-  echo -n "Downloading $(echo $2 | awk -F/ '{ print $NF }'):    "
-  wget --progress=dot "$2" -O "/tmp/$(echo $2 | awk -F/ '{ print $NF }')" 2>&1 |
+  echo -n "Downloading $(echo "$2" | awk -F/ '{ print $NF }'):    "
+  wget --progress=dot "$2" -O "/tmp/$(echo "$2" | awk -F/ '{ print $NF }')" 2>&1 |
     grep --line-buffered "%" |
     sed -e "s,\.,,g" |
     awk '{printf("\b\b\b\b%4s", $2)}'
@@ -375,7 +376,7 @@ backup() {
 
   CUR_VERSION=$(oc version 2>/dev/null | grep Client | sed -e 's/Client Version: //')
   if [[ -f "${BIN_PATH}/oc" ]] && [[ -f "${BIN_PATH}/openshift-install" ]] && [[ -f "${BIN_PATH}/kubectl" ]]; then
-    for i in openshift-install oc kubectl; do mv "$(which $i)" ${BIN_PATH}/"$i"."$CUR_VERSION".bak; done
+    for i in openshift-install oc kubectl; do mv "$(which "$i")" "${BIN_PATH}"/"$i"."$CUR_VERSION".bak; done
   fi
 
   if [[ "$1" == "extract" ]]; then
@@ -386,10 +387,10 @@ backup() {
 
 extract() {
 
-  echo -e "\nExtracting oc and kubectl from $(echo $CLIENT | awk -F/ '{ print $NF }') to ${BIN_PATH}"
-  tar -zxf "/tmp/$(echo $CLIENT | awk -F/ '{ print $NF }')" -C ${BIN_PATH}
-  echo -e "\nExtracting openshift-install from $(echo $INSTALL | awk -F/ '{ print $NF }') to ${BIN_PATH}"
-  tar -zxf "/tmp/$(echo $INSTALL | awk -F/ '{ print $NF}')" -C ${BIN_PATH}
+  echo -e "\nExtracting oc and kubectl from $(echo "$CLIENT" | awk -F/ '{ print $NF }') to ${BIN_PATH}"
+  tar -zxf "/tmp/$(echo "$CLIENT" | awk -F/ '{ print $NF }')" -C "${BIN_PATH}"
+  echo -e "\nExtracting openshift-install from $(echo "$INSTALL" | awk -F/ '{ print $NF }') to ${BIN_PATH}"
+  tar -zxf "/tmp/$(echo "$INSTALL" | awk -F/ '{ print $NF }')" -C "${BIN_PATH}"
 
   if [[ "$1" == "cleanup" ]]; then
     cleanup
@@ -399,7 +400,7 @@ extract() {
 
 cleanup() {
 
-  rm -rf ${BIN_PATH}/README.md
+  rm -rf "${BIN_PATH}"/README.md
   rm -rf "/tmp/openshift-client-${OS}.tar.gz"
   rm -rf "/tmp/openshift-install-${OS}.tar.gz"
 
@@ -409,14 +410,14 @@ cleanup() {
 
 remove_old_ver() {
 
-  if ls ${BIN_PATH}/oc*bak 1>/dev/null 2>&1 && ls ${BIN_PATH}/openshift-install*bak 1>/dev/null 2>&1 && ls ${BIN_PATH}/kubectl*bak 1>/dev/null 2>&1; then
+  if ls "${BIN_PATH}"/oc*bak 1>/dev/null 2>&1 && ls "${BIN_PATH}"/openshift-install*bak 1>/dev/null 2>&1 && ls "${BIN_PATH}"/kubectl*bak 1>/dev/null 2>&1; then
     read -rp "Delete the following files?
 $(echo -e "\n")
-$(for i in oc kubectl openshift-install; do ls -1 ${BIN_PATH}/$i*bak 2>/dev/null; done)
+$(for i in oc kubectl openshift-install; do ls -1 "${BIN_PATH}"/$i*bak 2>/dev/null; done)
 $(echo -e "\nY/N? ")"
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-      for i in oc kubectl openshift-install; do rm -f ${BIN_PATH}/$i*bak 2>/dev/null; done
+      for i in oc kubectl openshift-install; do rm -f "${BIN_PATH}"/$i*bak 2>/dev/null; done
       exit 0
     elif [[ $REPLY =~ ^[Nn]$ ]]; then
       exit 0
@@ -435,16 +436,16 @@ uninstall() {
 
   check_root
 
-  if ls ${BIN_PATH}/oc 1>/dev/null 2>&1 && ls ${BIN_PATH}/openshift-install 1>/dev/null 2>&1 && ls ${BIN_PATH}/kubectl 1>/dev/null 2>&1; then
+  if ls "${BIN_PATH}"/oc 1>/dev/null 2>&1 && ls "${BIN_PATH}"/openshift-install 1>/dev/null 2>&1 && ls "${BIN_PATH}"/kubectl 1>/dev/null 2>&1; then
     read -rp "Delete the following files?
 $(echo -e "\n")
-$(for i in oc kubectl openshift-install; do ls -1 ${BIN_PATH}/$i 2>/dev/null; done)
-$(for i in oc kubectl openshift-install; do ls -1 ${BIN_PATH}/$i*bak 2>/dev/null; done)
+$(for i in oc kubectl openshift-install; do ls -1 "${BIN_PATH}"/$i 2>/dev/null; done)
+$(for i in oc kubectl openshift-install; do ls -1 "${BIN_PATH}"/$i*bak 2>/dev/null; done)
 $(echo -e "\nY/N? ")"
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-      for i in oc kubectl openshift-install; do rm -f ${BIN_PATH}/$i*bak 2>/dev/null; done
-      for i in oc kubectl openshift-install; do rm -f ${BIN_PATH}/$i 2>/dev/null; done
+      for i in oc kubectl openshift-install; do rm -f "${BIN_PATH}"/$i*bak 2>/dev/null; done
+      for i in oc kubectl openshift-install; do rm -f "${BIN_PATH}"/$i 2>/dev/null; done
       exit 0
     elif [[ $REPLY =~ ^[Nn]$ ]]; then
       exit 0
@@ -468,7 +469,7 @@ show_ver() {
     echo "Error getting oc version. Please rerun script."
   fi
 
-  if [ ${oc_version} -lt 15 ]; then
+  if [ "${oc_version}" -lt 15 ]; then
     if which kubectl &>/dev/null; then
       echo -e "\nkubectl version: $(kubectl version --client | grep -o "GitVersion:.*" | cut -d, -f1)"
     else
@@ -585,7 +586,7 @@ cli_path() {
     fi
   fi
 
-  download_cli $MIRROR_CLI_PATH "$1"
+  download_cli "$MIRROR_CLI_PATH" "$1"
 
 }
 
@@ -593,9 +594,9 @@ download_cli() {
 
   check_root
 
-  filename=$(echo $1 | awk -F/ '{ print $NF }')
+  filename=$(echo "$1" | awk -F/ '{ print $NF }')
   echo -n "Downloading $filename:    "
-  wget --progress=dot "$1" -O "/tmp/$(echo $1 | awk -F/ '{ print $NF }')" 2>&1 |
+  wget --progress=dot "$1" -O "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" 2>&1 |
     grep --line-buffered "%" |
     sed -e "s,\.,,g" |
     awk '{printf("\b\b\b\b%4s", $2)}'
@@ -603,10 +604,10 @@ download_cli() {
   echo " Download Complete."
 
   if [[ "$2" == "serverless" ]]; then
-    tar -zxf "/tmp/$(echo $1 | awk -F/ '{ print $NF }')" -C ${BIN_PATH}
-    rm "/tmp/$(echo $1 | awk -F/ '{ print $NF }')"
+    tar -zxf "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" -C "${BIN_PATH}"
+    rm "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')"
   else
-    cp "/tmp/$(echo $1 | awk -F/ '{ print $NF }')" ${BIN_PATH}
+    cp "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" "${BIN_PATH}"
     chmod +x "${BIN_PATH}/$filename"
   fi
 

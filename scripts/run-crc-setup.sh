@@ -4,10 +4,10 @@ set -eo pipefail
 trap 'rm -f pull-secret.json' EXIT
 
 echo "=== CRC preflight check ==="
-sudo -su $USER crc setup --check-only 2>&1 || true
+sudo -su "$USER" crc setup --check-only 2>&1 || true
 
 echo "=== Running CRC setup ==="
-sudo -su $USER crc setup --log-level debug --show-progressbars
+sudo -su "$USER" crc setup --log-level debug --show-progressbars
 
 echo "=== Disk usage after CRC setup ==="
 df -h
@@ -21,7 +21,7 @@ while [ $attempt -le $max_attempts ]; do
 
   start_exit_code=0
   start_log="/tmp/crc-start-attempt-${attempt}.log"
-  sudo -su $USER crc start --pull-secret-file pull-secret.json --log-level debug 2>&1 | tee "$start_log" || start_exit_code=$?
+  sudo -su "$USER" crc start --pull-secret-file pull-secret.json --log-level debug 2>&1 | tee "$start_log" || start_exit_code=$?
   start_output=$(cat "$start_log")
 
   if [ $start_exit_code -eq 0 ]; then
@@ -32,7 +32,7 @@ while [ $attempt -le $max_attempts ]; do
     echo "WARNING: CRC start failed with retryable error (exit code $start_exit_code)"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
-      sudo -su $USER crc stop || true
+      sudo -su "$USER" crc stop || true
       sleep 10
       attempt=$((attempt + 1))
       continue
