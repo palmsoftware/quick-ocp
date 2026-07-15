@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # Fetch CRC releases and determine the latest release for each unique OpenShift major.minor version.
 
@@ -19,7 +20,7 @@ fi
 # Retry curl up to 10 times with 3s delay
 RETRIES=10
 for i in $(seq 1 $RETRIES); do
-  RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" "$GITHUB_API")
+  RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" "$GITHUB_API") || true
   # Check if response is valid JSON and not empty
   if [ -n "$RESPONSE" ] && echo "$RESPONSE" | jq empty >/dev/null 2>&1; then
     break
@@ -46,7 +47,7 @@ fi
 
 RESULT=$(echo "$RESPONSE" | jq -r --arg OCP_MINOR "$OCP_VERSION" '
   [
-    .[] 
+    .[]
     | {
         tag: .tag_name,
         name: .name,
@@ -75,10 +76,9 @@ RESULT=$(echo "$RESPONSE" | jq -r --arg OCP_MINOR "$OCP_VERSION" '
     else
       (.tag | sub("^v"; ""))
     end
-' 2>/dev/null)
+' 2>/dev/null) || true
 
-# Check if jq command failed
-if [ $? -ne 0 ] || [ -z "$RESULT" ]; then
+if [ -z "$RESULT" ]; then
   echo "Error: Failed to parse JSON response with jq" >&2
   echo "Falling back to 'latest' CRC version..." >&2
   echo "latest"

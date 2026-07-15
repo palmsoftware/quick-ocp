@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 timeout=600 # 10 minutes in seconds
 elapsed=0
