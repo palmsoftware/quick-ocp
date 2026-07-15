@@ -40,6 +40,15 @@ while [ $attempt -le $max_attempts ]; do
   fi
 
   echo "ERROR: CRC start failed (exit code $start_exit_code) on attempt $attempt of $max_attempts"
+  echo ""
+  echo "=== CRC Status ==="
+  crc status 2>&1 || true
+  echo ""
+  echo "=== CRC Daemon Logs (last 50 lines) ==="
+  sudo journalctl -u "crc*" --no-pager -n 50 2>/dev/null || true
+  echo ""
+  echo "=== libvirt Logs (last 30 lines) ==="
+  sudo journalctl -u "libvirtd*" --no-pager -n 30 2>/dev/null || true
   exit 1
 done
 
