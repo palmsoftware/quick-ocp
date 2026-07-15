@@ -116,7 +116,10 @@ runs:
 
     - name: Download and Install OpenShift Local Binary
       shell: bash
-      run: ${{ github.action_path }}/scripts/download-install-crc.sh "${{ steps.set_crc_version.outputs.crc_version }}"
+      run: |
+        echo "::group::Download and Install CRC"
+        ${{ github.action_path }}/scripts/download-install-crc.sh "${{ steps.set_crc_version.outputs.crc_version }}"
+        echo "::endgroup::"
 
     - name: CRC version lookup from crc
       id: crc_version_lookup
@@ -172,11 +175,17 @@ runs:
 
     - name: Install dependencies for specific Ubuntu versions
       shell: bash
-      run: ${{ github.action_path }}/scripts/install-ubuntu-dependencies.sh
+      run: |
+        echo "::group::Install Ubuntu Dependencies"
+        ${{ github.action_path }}/scripts/install-ubuntu-dependencies.sh
+        echo "::endgroup::"
 
     - name: Enable KVM group perms
       shell: bash
-      run: ${{ github.action_path }}/scripts/enable-kvm-perms.sh
+      run: |
+        echo "::group::Enable KVM Permissions"
+        ${{ github.action_path }}/scripts/enable-kvm-perms.sh
+        echo "::endgroup::"
 
     # If there is no /etc/docker/daemon.json, create it.
     - name: Create /etc/docker/daemon.json
@@ -205,7 +214,10 @@ runs:
 
     - name: Run setup
       shell: bash
-      run: ${{ github.action_path }}/scripts/run-crc-setup.sh
+      run: |
+        echo "::group::CRC Setup and Start"
+        ${{ github.action_path }}/scripts/run-crc-setup.sh
+        echo "::endgroup::"
 
     - name: Protect CRC/QEMU from OOM killer
       shell: bash
@@ -232,11 +244,17 @@ runs:
 
     - name: Bootstrap the runner with kubectl and oc clients
       shell: bash
-      run: ${{ github.action_path }}/scripts/bootstrap-oc-kubectl.sh "${{ steps.ocp_version_lookup.outputs.ocp_version }}" "${{ github.action_path }}"
+      run: |
+        echo "::group::Bootstrap oc and kubectl"
+        ${{ github.action_path }}/scripts/bootstrap-oc-kubectl.sh "${{ steps.ocp_version_lookup.outputs.ocp_version }}" "${{ github.action_path }}"
+        echo "::endgroup::"
 
     - name: Wait until node is Ready state
       shell: bash
-      run: ${{ github.action_path }}/scripts/wait-for-node-ready.sh
+      run: |
+        echo "::group::Wait for Node Ready"
+        ${{ github.action_path }}/scripts/wait-for-node-ready.sh
+        echo "::endgroup::"
 
     - name: Get cluster credentials
       id: cluster_credentials
@@ -245,7 +263,10 @@ runs:
 
     - name: Disable non-essential OpenShift operators to save resources
       shell: bash
-      run: ${{ github.action_path }}/scripts/scale-down-nonessential.sh
+      run: |
+        echo "::group::Scale Down Non-Essential Operators"
+        ${{ github.action_path }}/scripts/scale-down-nonessential.sh
+        echo "::endgroup::"
 
     - name: Set the adm policy
       shell: bash
@@ -263,7 +284,10 @@ runs:
 
     - name: Comprehensive Disk Space Report
       shell: bash
-      run: ${{ github.action_path }}/scripts/comprehensive-disk-report.sh
+      run: |
+        echo "::group::Disk Space Report"
+        ${{ github.action_path }}/scripts/comprehensive-disk-report.sh
+        echo "::endgroup::"
       continue-on-error: true
 
     - name: Calculate deployment duration
