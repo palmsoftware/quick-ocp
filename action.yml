@@ -65,6 +65,9 @@ outputs:
   kubeadmin-password:
     description: 'The kubeadmin password for cluster authentication'
     value: ${{ steps.cluster_credentials.outputs.kubeadmin-password }}
+  kubeconfig-path:
+    description: 'The path to the kubeconfig file for cluster access'
+    value: ${{ steps.cluster_credentials.outputs.kubeconfig-path }}
   setup-duration:
     description: 'Total deployment time in seconds'
     value: ${{ steps.deployment_duration.outputs.duration }}
