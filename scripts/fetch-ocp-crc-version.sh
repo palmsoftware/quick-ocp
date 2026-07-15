@@ -10,9 +10,9 @@ if [ -z "$1" ]; then
 fi
 OCP_VERSION="$1"
 
-# Only support OCP versions 4.10 and above
-if ! [[ "$OCP_VERSION" =~ ^4\.([1-9][0-9]|10)$ ]]; then
-  echo "Error: Only OCP versions 4.10 and above are supported (e.g., 4.18, 4.20)." >&2
+# Only support OCP versions 4.18 and above
+if ! [[ "$OCP_VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
+  echo "Error: Only OCP versions 4.18 and above are supported (e.g., 4.18, 4.19, 4.20)." >&2
   exit 2
 fi
 
