@@ -52,8 +52,9 @@ if [ "$DOWNLOAD_SUCCESS" = false ]; then
 fi
 
 tar -xf crc.tar.xz
-if [ -d crc-linux-* ] && [ -f crc-linux-*/crc ]; then
-  sudo mv crc-linux-*/crc /usr/local/bin
+CRC_DIR=$(find . -maxdepth 1 -type d -name 'crc-linux-*' | head -1)
+if [ -n "$CRC_DIR" ] && [ -f "$CRC_DIR/crc" ]; then
+  sudo mv "$CRC_DIR/crc" /usr/local/bin
 else
   echo "Error: CRC binary not found in extracted archive"
   exit 1
