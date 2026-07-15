@@ -52,3 +52,20 @@ if [ "$ENABLE_CLUSTER_MONITORING" = "true" ]; then
   echo "=== Enabling cluster monitoring stack ==="
   crc config set enable-cluster-monitoring true
 fi
+
+if [ -n "${HTTP_PROXY_INPUT:-}" ]; then
+  echo "=== Configuring HTTP proxy ==="
+  crc config set http-proxy "$HTTP_PROXY_INPUT"
+fi
+if [ -n "${HTTPS_PROXY_INPUT:-}" ]; then
+  echo "=== Configuring HTTPS proxy ==="
+  crc config set https-proxy "$HTTPS_PROXY_INPUT"
+fi
+if [ -n "${NO_PROXY_INPUT:-}" ]; then
+  echo "=== Configuring no-proxy list ==="
+  crc config set no-proxy "$NO_PROXY_INPUT"
+fi
+if [ -n "${PROXY_CA_FILE_INPUT:-}" ]; then
+  echo "=== Configuring proxy CA file ==="
+  crc config set proxy-ca-file "$PROXY_CA_FILE_INPUT"
+fi
