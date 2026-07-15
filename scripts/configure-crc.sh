@@ -7,6 +7,24 @@ CRC_DISK_SIZE="$3"
 ENABLE_TELEMETRY="$4"
 ENABLE_CLUSTER_MONITORING="$5"
 
+validate_numeric() {
+  local name="$1"
+  local value="$2"
+  local min="$3"
+  if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: $name must be a positive integer, got: '$value'" >&2
+    exit 1
+  fi
+  if [ "$value" -lt "$min" ]; then
+    echo "ERROR: $name must be at least $min, got: $value" >&2
+    exit 1
+  fi
+}
+
+validate_numeric "crcCpu" "$CRC_CPU" 4
+validate_numeric "crcMemory" "$CRC_MEMORY" 10752
+validate_numeric "crcDiskSize" "$CRC_DISK_SIZE" 31
+
 MIN_MONITORING_MEMORY=14336
 
 if [ "$ENABLE_CLUSTER_MONITORING" = "true" ]; then
