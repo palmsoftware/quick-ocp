@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-timeout=600 # 10 minutes in seconds
+timeout="${1:-600}"
+[[ "$timeout" =~ ^[0-9]+$ ]] || {
+  echo "ERROR: invalid timeout value: $timeout" >&2
+  exit 1
+}
 elapsed=0
 interval=10
 
