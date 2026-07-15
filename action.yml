@@ -65,10 +65,18 @@ outputs:
   kubeadmin-password:
     description: 'The kubeadmin password for cluster authentication'
     value: ${{ steps.cluster_credentials.outputs.kubeadmin-password }}
+  setup-duration:
+    description: 'Total deployment time in seconds'
+    value: ${{ steps.deployment_duration.outputs.duration }}
 
 runs:
   using: 'composite'
   steps:
+
+    - name: Record deployment start time
+      id: deployment_start
+      shell: bash
+      run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
 
     - name: Check connectivity to required services
       if: ${{ inputs.disableConnectivityCheck != 'true' }}
@@ -211,3 +219,14 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/comprehensive-disk-report.sh
       continue-on-error: true
+
+    - name: Calculate deployment duration
+      if: always()
+      id: deployment_duration
+      shell: bash
+      env:
+        START_TIME: ${{ steps.deployment_start.outputs.start_time }}
+      run: |
+        DURATION=$(( $(date +%s) - START_TIME ))
+        echo "duration=$DURATION" >>"${GITHUB_OUTPUT}"
+        echo "=== Deployment completed in ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s) ==="
