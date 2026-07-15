@@ -30,9 +30,11 @@ check_service() {
   fi
 }
 
-# Check OpenShift Mirror (primary dependency)
-# Test with a known stable endpoint
+# Check OpenShift Mirror (primary dependency for CRC download)
 check_service "OpenShift Mirror" "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/release.txt" 15
+
+# Check GitHub API (used for CRC version detection)
+check_service "GitHub API" "https://api.github.com" 10
 
 echo ""
 echo "=== Connectivity Check Summary ==="
@@ -49,13 +51,13 @@ else
     echo "  - $service"
   done
   echo ""
-  echo "This action requires internet access to the OpenShift mirrors."
+  echo "This action requires internet access to external services."
   echo "Please check your network connection and try again."
   echo ""
   echo "Common causes:"
   echo "  - Network connectivity issues"
-  echo "  - Firewall blocking access to mirror.openshift.com"
-  echo "  - OpenShift Mirror temporarily unavailable"
+  echo "  - Firewall blocking access to required endpoints"
+  echo "  - Service temporarily unavailable"
   echo "  - DNS resolution problems"
   echo ""
   exit 1
