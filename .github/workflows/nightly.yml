@@ -47,3 +47,68 @@ jobs:
           desiredOCPVersion: ${{ matrix.ocp }}
         env:
           OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+  test-cluster-monitoring:
+    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Check Red Hat Status
+        uses: palmsoftware/redhat-status@v0
+        with:
+          components: |
+            api.openshift.com
+            developers.redhat.com
+
+      - name: Checkout the code
+        uses: actions/checkout@v7
+
+      - name: Deploy OCP with cluster monitoring enabled
+        uses: ./
+        with:
+          ocpPullSecret: $OCP_PULL_SECRET
+          bundleCache: true
+          desiredOCPVersion: 'latest'
+          crcMemory: '14336'
+          enableClusterMonitoring: true
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+      - name: Verify monitoring stack is running
+        run: |
+          echo "=== Checking cluster monitoring pods ==="
+          oc get pods -n openshift-monitoring
+          echo "=== Waiting for prometheus-k8s pod to be created ==="
+          oc wait --for=create pod -l app.kubernetes.io/name=prometheus -n openshift-monitoring --timeout=300s
+          echo "=== Waiting for prometheus-k8s pod to be Ready ==="
+          oc wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus -n openshift-monitoring --timeout=300s
+          echo "=== Cluster monitoring is operational ==="
+
+  test-preload-images:
+    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v7
+
+      - name: Deploy OCP with preloaded images
+        uses: ./
+        with:
+          ocpPullSecret: $OCP_PULL_SECRET
+          bundleCache: true
+          desiredOCPVersion: 'latest'
+          preloadImages: |
+            docker.io/library/nginx:latest
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+      - name: Verify preloaded image exists as imagestream
+        run: |
+          echo "=== Checking for preloaded imagestream ==="
+          oc get imagestream nginx -n openshift -o jsonpath='{.metadata.name}'
+          echo ""
+          echo "=== Imagestream details ==="
+          oc get imagestream nginx -n openshift -o yaml
