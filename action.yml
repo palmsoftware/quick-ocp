@@ -72,6 +72,9 @@ outputs:
   kubeconfig-path:
     description: 'The path to the kubeconfig file for cluster access'
     value: ${{ steps.cluster_credentials.outputs.kubeconfig-path }}
+  cache-hit:
+    description: 'Whether the CRC bundle cache was hit (true/false/disabled)'
+    value: ${{ steps.cache_result.outputs.cache-hit }}
   setup-duration:
     description: 'Total deployment time in seconds'
     value: ${{ steps.deployment_duration.outputs.duration }}
@@ -121,6 +124,21 @@ runs:
       if: steps.restore-cache.outputs.cache-hit == 'true'
       shell: bash
       run: ${{ github.action_path }}/scripts/copy-bundletmp-to-cache.sh
+
+    - name: Report bundle cache result
+      id: cache_result
+      shell: bash
+      run: |
+        if [ "${{ inputs.bundleCache }}" != "true" ]; then
+          echo "cache-hit=disabled" >>"${GITHUB_OUTPUT}"
+          echo "=== Bundle cache: disabled ==="
+        elif [ "${{ steps.restore-cache.outputs.cache-hit }}" = "true" ]; then
+          echo "cache-hit=true" >>"${GITHUB_OUTPUT}"
+          echo "=== Bundle cache: HIT ==="
+        else
+          echo "cache-hit=false" >>"${GITHUB_OUTPUT}"
+          echo "=== Bundle cache: MISS (will be saved after setup) ==="
+        fi
 
     - name: Setup CRC cache directory on larger disk
       shell: bash
