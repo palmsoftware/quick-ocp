@@ -48,6 +48,22 @@ inputs:
     description: 'Timeout in seconds for waiting for operators to become ready'
     required: false
     default: '600'
+  httpProxy:
+    description: 'HTTP proxy URL for CRC (e.g., http://proxy.example.com:8080)'
+    required: false
+    default: ''
+  httpsProxy:
+    description: 'HTTPS proxy URL for CRC (e.g., http://proxy.example.com:8080)'
+    required: false
+    default: ''
+  noProxy:
+    description: 'Comma-separated list of hosts/domains to exclude from proxying'
+    required: false
+    default: ''
+  proxyCaFile:
+    description: 'Path to a CA certificate file for the proxy'
+    required: false
+    default: ''
   preloadImages:
     description: 'Newline-separated list of container images to preload into the cluster registry'
     required: false
@@ -180,6 +196,11 @@ runs:
 
     - name: Start OpenShift Local
       shell: bash
+      env:
+        HTTP_PROXY_INPUT: ${{ inputs.httpProxy }}
+        HTTPS_PROXY_INPUT: ${{ inputs.httpsProxy }}
+        NO_PROXY_INPUT: ${{ inputs.noProxy }}
+        PROXY_CA_FILE_INPUT: ${{ inputs.proxyCaFile }}
       run: ${{ github.action_path }}/scripts/configure-crc.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.crcDiskSize }}" "${{ inputs.enableTelemetry }}" "${{ inputs.enableClusterMonitoring }}"
 
     - name: Run setup
