@@ -22,13 +22,11 @@ while [ $attempt -le $max_attempts ]; do
   start_exit_code=0
   start_log="/tmp/crc-start-attempt-${attempt}.log"
   sudo -su "$USER" crc start --pull-secret-file pull-secret.json --log-level debug 2>&1 | tee "$start_log" || start_exit_code=$?
-  start_output=$(cat "$start_log")
-
   if [ $start_exit_code -eq 0 ]; then
     break
   fi
 
-  if echo "$start_output" | grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH\|connection refused\|connection reset by peer"; then
+  if grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH\|Failed to update pull secret\|connection refused\|connection reset by peer" "$start_log"; then
     echo "WARNING: CRC start failed with retryable error (exit code $start_exit_code)"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
