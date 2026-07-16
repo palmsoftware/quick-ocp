@@ -37,12 +37,36 @@ check_service() {
   return 1
 }
 
+# Non-fatal connectivity check (warns but does not fail the script)
+check_optional_service() {
+  local service_name="$1"
+  local url="$2"
+  local timeout="${3:-10}"
+
+  echo -n "Checking $service_name (optional)... "
+
+  local max_retries=5
+  local attempt
+  for attempt in $(seq 1 $max_retries); do
+    if curl -s -f -L -I --connect-timeout "$timeout" --max-time "$timeout" "$url" >/dev/null 2>&1; then
+      echo "✓ OK"
+      return 0
+    fi
+    if [ "$attempt" -lt "$max_retries" ]; then
+      echo -n "retry $((attempt + 1))/$max_retries... "
+      sleep 5
+    fi
+  done
+  echo "✗ FAILED (non-fatal, continuing)"
+  return 0
+}
+
 # Check OpenShift Mirror (primary dependency for CRC download)
 check_service "OpenShift Mirror" "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/release.txt" 15
 
-# Check GitHub API (used for CRC version detection, non-fatal since version
+# Check GitHub API (used for CRC version detection — non-fatal since version
 # detection has its own fallback logic)
-check_service "GitHub API" "https://api.github.com" 10 || true
+check_optional_service "GitHub API" "https://api.github.com" 10
 
 echo ""
 echo "=== Connectivity Check Summary ==="
