@@ -21,6 +21,18 @@ while ! oc get nodes --request-timeout='30s' &>/dev/null; do
   elapsed=$((elapsed + interval))
   if [ $elapsed -ge $timeout ]; then
     echo "Timeout reached: Cluster not accessible after ${timeout}s"
+    echo ""
+    echo "=== CRC Status ==="
+    crc status 2>&1 || true
+    echo ""
+    echo "=== Memory Usage ==="
+    free -h 2>&1 || true
+    echo ""
+    echo "=== libvirt VM Status ==="
+    sudo virsh list --all 2>/dev/null || true
+    echo ""
+    echo "=== CRC Daemon Logs (last 30 lines) ==="
+    sudo journalctl -u "crc*" --no-pager -n 30 2>/dev/null || true
     exit 1
   fi
 done

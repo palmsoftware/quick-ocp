@@ -3,10 +3,18 @@ set -e
 
 echo "=== Disabling non-essential OpenShift operators ==="
 
-# Add ClusterVersion overrides so the CVO does not reconcile these back.
-# This mirrors the approach CRC uses to disable operators like monitoring.
-# We build the patch dynamically to skip operators already in the overrides list.
-EXISTING_OVERRIDES=$(oc get clusterversion/version -ojsonpath='{range .spec.overrides[*]}{.name}{"\n"}{end}')
+max_retries=5
+retry_delay=10
+for attempt in $(seq 1 $max_retries); do
+  EXISTING_OVERRIDES=$(oc get clusterversion/version -ojsonpath='{range .spec.overrides[*]}{.name}{"\n"}{end}' 2>&1) && break
+  echo "WARNING: Failed to query ClusterVersion (attempt $attempt/$max_retries), retrying in ${retry_delay}s..."
+  sleep "$retry_delay"
+  if [ "$attempt" -eq "$max_retries" ]; then
+    echo "ERROR: Could not reach ClusterVersion API after $max_retries attempts"
+    echo "$EXISTING_OVERRIDES"
+    exit 1
+  fi
+done
 
 PATCH="["
 NEED_COMMA=false

@@ -19,22 +19,30 @@ check_service() {
   # -s: silent, -f: fail on HTTP errors, -L: follow redirects, -I: HEAD request only
   # --max-time: maximum time for the operation
   # --connect-timeout: maximum time for connection
-  if curl -s -f -L -I --connect-timeout "$timeout" --max-time "$timeout" "$url" >/dev/null 2>&1; then
-    echo "✓ OK"
-    return 0
-  else
-    echo "✗ FAILED"
-    CONNECTIVITY_OK=false
-    FAILED_SERVICES+=("$service_name")
-    return 1
-  fi
+  local max_retries=3
+  local attempt
+  for attempt in $(seq 1 $max_retries); do
+    if curl -s -f -L -I --connect-timeout "$timeout" --max-time "$timeout" "$url" >/dev/null 2>&1; then
+      echo "✓ OK"
+      return 0
+    fi
+    if [ "$attempt" -lt "$max_retries" ]; then
+      echo -n "retry $((attempt + 1))/$max_retries... "
+      sleep 5
+    fi
+  done
+  echo "✗ FAILED"
+  CONNECTIVITY_OK=false
+  FAILED_SERVICES+=("$service_name")
+  return 1
 }
 
 # Check OpenShift Mirror (primary dependency for CRC download)
 check_service "OpenShift Mirror" "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/release.txt" 15
 
-# Check GitHub API (used for CRC version detection)
-check_service "GitHub API" "https://api.github.com" 10
+# Check GitHub API (used for CRC version detection, non-fatal since version
+# detection has its own fallback logic)
+check_service "GitHub API" "https://api.github.com" 10 || true
 
 echo ""
 echo "=== Connectivity Check Summary ==="
