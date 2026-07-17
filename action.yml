@@ -112,6 +112,8 @@ runs:
     - name: Set CRC version variable
       id: set_crc_version
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: ${{ github.action_path }}/scripts/set-crc-version.sh "${{ inputs.desiredOCPVersion }}" "${{ github.action_path }}" "${{ inputs.crcVersion }}"
 
     - name: Download and Install OpenShift Local Binary
