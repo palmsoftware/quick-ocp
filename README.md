@@ -48,7 +48,7 @@ You will need to supply your OCP Pull Secret as a Github Actions Secret.  Your p
 ```yaml
 steps:
   - name: Set up Quick-OCP
-    uses: palmsoftware/quick-ocp@v0.0.35
+    uses: palmsoftware/quick-ocp@v1
     with:
       ocpPullSecret: $OCP_PULL_SECRET
     env:
@@ -172,7 +172,7 @@ Setting `enableClusterMonitoring: true` deploys the OpenShift cluster monitoring
 - **Startup time**: Allow up to 60 minutes total — the monitoring pods (Prometheus, Alertmanager, node-exporter) may take several minutes to schedule and reach Ready state after the cluster is up.
 
 ```yaml
-- uses: palmsoftware/quick-ocp@v0
+- uses: palmsoftware/quick-ocp@v1
   with:
     ocpPullSecret: $OCP_PULL_SECRET
     bundleCache: true
@@ -194,7 +194,7 @@ Use the `preloadImages` input to mirror container images into the cluster's inte
 Images are specified as a newline-separated list using YAML's pipe (`|`) syntax:
 
 ```yaml
-- uses: palmsoftware/quick-ocp@v0
+- uses: palmsoftware/quick-ocp@v1
   with:
     ocpPullSecret: $OCP_PULL_SECRET
     bundleCache: true
