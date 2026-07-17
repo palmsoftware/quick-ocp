@@ -24,14 +24,14 @@ jobs:
       SHELL: /bin/bash
     steps:
       - name: Check Red Hat Status
-        uses: palmsoftware/redhat-status@v0
+        uses: palmsoftware/redhat-status@a49265b8ca7eb95f4a09f3d01e01b66e72c35043 # v0
         with:
           components: |
             api.openshift.com
             developers.redhat.com
 
       - name: Checkout the code
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: check if OCP_PULL_SECRET exists
         env: 
@@ -55,14 +55,14 @@ jobs:
       SHELL: /bin/bash
     steps:
       - name: Check Red Hat Status
-        uses: palmsoftware/redhat-status@v0
+        uses: palmsoftware/redhat-status@a49265b8ca7eb95f4a09f3d01e01b66e72c35043 # v0
         with:
           components: |
             api.openshift.com
             developers.redhat.com
 
       - name: Checkout the code
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Deploy OCP with cluster monitoring enabled
         uses: ./
@@ -92,7 +92,7 @@ jobs:
       SHELL: /bin/bash
     steps:
       - name: Checkout the code
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Deploy OCP with preloaded images
         uses: ./
