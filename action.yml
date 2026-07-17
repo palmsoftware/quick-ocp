@@ -132,7 +132,7 @@ runs:
       run: ${{ github.action_path }}/scripts/get-ocp-version.sh
 
     - name: Restore CRC bundles from the cache
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       if: ${{ inputs.bundleCache == 'true' }}
       id: restore-cache
       with:
@@ -168,7 +168,7 @@ runs:
       run: ${{ github.action_path }}/scripts/create-swap.sh
 
     - name: Optimize disk space and relocate Docker storage
-      uses: palmsoftware/quick-cleanup@v0
+      uses: palmsoftware/quick-cleanup@e0fa8042229eafe51f8519203e72439142066bb3 # v0
       with:
         cleanup-mode: aggressive
         minimum-free-space: 25
@@ -228,7 +228,7 @@ runs:
       run: ${{ github.action_path }}/scripts/move-crc-bundles-to-temp.sh
 
     - name: Cache the crc bundles using github actions cache
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       if: ${{ inputs.bundleCache == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
       with:
         path: ~/.crc/bundletmp
