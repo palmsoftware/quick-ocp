@@ -162,3 +162,27 @@ This is useful for:
 1. Explicit `crcVersion` input (highest priority)
 2. Pinned version in `crc-version-pins.json`
 3. Automatic detection via GitHub API (lowest priority)
+
+## Cluster Monitoring
+
+Setting `enableClusterMonitoring: true` deploys the OpenShift cluster monitoring stack (Prometheus, Alertmanager, etc.) inside the CRC VM. This has significant resource implications on free-tier runners:
+
+- **Memory**: The action automatically increases CRC memory to 14,336 MB (14 GiB) if the configured value is lower. Free-tier runners have ~7 GB of host RAM, so the VM will rely heavily on swap.
+- **Disk**: The monitoring stack pulls additional container images and generates metric data. Expect roughly 3-5 GB of extra disk usage on top of the base cluster.
+- **Startup time**: Allow up to 60 minutes total — the monitoring pods (Prometheus, Alertmanager, node-exporter) may take several minutes to schedule and reach Ready state after the cluster is up.
+
+```yaml
+- uses: palmsoftware/quick-ocp@v0
+  with:
+    ocpPullSecret: $OCP_PULL_SECRET
+    bundleCache: true
+    enableClusterMonitoring: true
+    crcMemory: '14336'
+  env:
+    OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+```
+
+**Recommendations:**
+- Always use `bundleCache: true` to avoid adding bundle download time to an already long job.
+- Set `timeout-minutes: 60` on the job to allow enough time for the monitoring stack to start.
+- If you only need to verify monitoring is available and don't need it running for your tests, consider checking for the operator status rather than waiting for all pods.
