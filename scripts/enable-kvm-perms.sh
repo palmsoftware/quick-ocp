@@ -8,7 +8,6 @@ sudo udevadm trigger --name-match=kvm
 sudo udevadm trigger --name-match=vhost-vsock 2>/dev/null || true
 sudo chmod 0666 /dev/kvm 2>/dev/null || true
 sudo chmod 0666 /dev/vhost-vsock 2>/dev/null || true
-sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system-x86
 sudo usermod -a -G kvm,libvirt "$USER"
 if ! groups "$USER" | grep -q libvirt; then
   sudo adduser "$(id -un)" libvirt
