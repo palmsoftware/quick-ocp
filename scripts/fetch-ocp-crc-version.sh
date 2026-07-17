@@ -17,10 +17,19 @@ if ! [[ "$OCP_VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
   exit 2
 fi
 
+# Build auth header if GITHUB_TOKEN is available (raises rate limit from 60 to 5000 req/hr)
+AUTH_HEADER=()
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  AUTH_HEADER=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  echo "Using authenticated GitHub API request" >&2
+else
+  echo "WARNING: GITHUB_TOKEN not set, using unauthenticated API (60 req/hr limit)" >&2
+fi
+
 # Retry curl up to 10 times with 3s delay
 RETRIES=10
 for i in $(seq 1 $RETRIES); do
-  RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" "$GITHUB_API") || true
+  RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" "${AUTH_HEADER[@]}" "$GITHUB_API") || true
   # Check if response is valid JSON and not empty
   if [ -n "$RESPONSE" ] && echo "$RESPONSE" | jq empty >/dev/null 2>&1; then
     break
