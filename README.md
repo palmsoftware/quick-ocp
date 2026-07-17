@@ -212,3 +212,61 @@ oc get imagestream nginx -n openshift
 ```
 
 Lines starting with `#` and blank lines are ignored, so you can comment your image list.
+
+## Troubleshooting
+
+### OOM Kills
+
+**Symptom:** The job fails with `crc start` errors, or the CRC VM becomes unresponsive. The runner's dmesg may show `Out of memory: Killed process`.
+
+**Cause:** Free-tier runners have ~7 GB of RAM. The CRC VM is allocated 10,752 MB by default, so it relies on swap. Heavy workloads or enabling cluster monitoring (14 GiB) increases pressure further.
+
+**Mitigations:**
+- The action automatically creates swap on `/mnt` and protects CRC/QEMU processes from the OOM killer.
+- Use `bundleCache: true` to avoid downloading the 3-5 GB bundle during the job, freeing memory during the critical startup window.
+- Reduce `crcMemory` if your tests don't need the full allocation (minimum ~9216 MB for a functional cluster).
+- Avoid running memory-intensive steps before `crc start` completes.
+
+### Disk Space Exhaustion
+
+**Symptom:** The job fails during CRC setup, bundle extraction, or cluster startup with errors about insufficient disk space.
+
+**Cause:** The CRC bundle is 3-5 GB compressed, and the extracted VM image plus cluster data can use 20+ GB. Free-tier runners have limited disk on the root partition.
+
+**Mitigations:**
+- The action uses [quick-cleanup](https://github.com/palmsoftware/quick-cleanup) in aggressive mode to free space before cluster creation and relocates Docker storage to the larger `/mnt` partition.
+- Use `bundleCache: true` — cached bundles are stored via GitHub Actions cache and extracted directly, avoiding a separate download.
+- The action prints a comprehensive disk space report at the end of each run. Look for the **Disk Space Report** step in the job output to see where space was consumed.
+
+### CRC Start Failures
+
+**Symptom:** The `Run setup` step fails after one or more retries with errors like `Failed to connect to the CRC VM with SSH`, `connection refused`, or `Failed to update pull secret`.
+
+**Cause:** CRC start can fail transiently due to VM boot timing, SSH connectivity, or resource pressure. The action retries up to 3 times with a 30-second delay between attempts.
+
+**What to check:**
+- Expand the **CRC Setup and Start** group in the job log to see the full output from each attempt.
+- If every attempt fails with the same error, it's likely a resource issue (see OOM and disk sections above).
+- If the error mentions `kubeconfig` or `pull secret`, these are typically transient and resolve on retry.
+
+### Operator Timeout
+
+**Symptom:** The job succeeds at creating the cluster but fails at the `Wait for operators to be available` step.
+
+**Cause:** Some operators take longer to roll out on resource-constrained runners. The default timeout is 600 seconds (10 minutes).
+
+**Mitigations:**
+- Increase the timeout: `operatorTimeout: '900'`
+- If you don't need all operators ready for your tests, set `waitForOperatorsReady: false` (the default) and check only the operators you need.
+- Non-essential operators are automatically scaled down to save resources. Only core operators remain active.
+
+### Connectivity Failures
+
+**Symptom:** The job fails at the `Check connectivity to required services` step.
+
+**Cause:** The OpenShift Mirror (`mirror.openshift.com`) or Red Hat SSO is unreachable. This can happen during Red Hat maintenance windows.
+
+**What to check:**
+- Check [Red Hat Status](https://status.redhat.com/) for ongoing incidents.
+- The GitHub API connectivity check is non-fatal — a warning is logged but the job continues.
+- If the mirror is consistently down, you can use `disableConnectivityCheck: true` to skip the check, but the download step will still fail if the mirror is actually unreachable.
