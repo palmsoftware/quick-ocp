@@ -186,3 +186,29 @@ Setting `enableClusterMonitoring: true` deploys the OpenShift cluster monitoring
 - Always use `bundleCache: true` to avoid adding bundle download time to an already long job.
 - Set `timeout-minutes: 60` on the job to allow enough time for the monitoring stack to start.
 - If you only need to verify monitoring is available and don't need it running for your tests, consider checking for the operator status rather than waiting for all pods.
+
+## Preloading Container Images
+
+Use the `preloadImages` input to mirror container images into the cluster's internal registry before your tests run. This is useful when your tests deploy workloads that pull from external registries — preloading avoids pull failures and speeds up pod startup.
+
+Images are specified as a newline-separated list using YAML's pipe (`|`) syntax:
+
+```yaml
+- uses: palmsoftware/quick-ocp@v0
+  with:
+    ocpPullSecret: $OCP_PULL_SECRET
+    bundleCache: true
+    preloadImages: |
+      docker.io/library/nginx:latest
+      quay.io/myorg/myapp:v1.2.3
+  env:
+    OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+```
+
+Each image is mirrored into the `openshift` namespace as an ImageStream. For example, `docker.io/library/nginx:latest` becomes available as `nginx:latest` in the `openshift` namespace:
+
+```bash
+oc get imagestream nginx -n openshift
+```
+
+Lines starting with `#` and blank lines are ignored, so you can comment your image list.
