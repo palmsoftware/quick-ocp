@@ -170,7 +170,7 @@ runs:
       run: ${{ github.action_path }}/scripts/create-swap.sh
 
     - name: Optimize disk space and relocate Docker storage
-      uses: palmsoftware/quick-cleanup@e0fa8042229eafe51f8519203e72439142066bb3 # v0
+      uses: palmsoftware/quick-cleanup@1835629f4d38858283f84761f3029e679809d153 # v0
       with:
         cleanup-mode: aggressive
         minimum-free-space: 25
