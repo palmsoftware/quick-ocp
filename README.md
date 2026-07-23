@@ -16,12 +16,12 @@ If you are looking to quickly spawn Kubernetes in your Action runner, try [quick
 
 This action is tested on the following GitHub Actions runners:
 
+- `ubuntu-26.04`
 - `ubuntu-24.04`
 - `ubuntu-22.04`
 
 # Known Limitations:
 
-- `ubuntu-26.04` is not yet supported due to a CRC vsock SSH incompatibility with Linux kernel 7.0. See [crc-org/crc#5283](https://github.com/crc-org/crc/issues/5283) for tracking.
 - `ubuntu-20.04` is not supported due to the version of `libvirt` available in the mirrors not meeting the minimum version required by OpenShift Local.
 
 # Connectivity Requirements:
