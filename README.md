@@ -70,6 +70,7 @@ steps:
 | `enableClusterMonitoring` | Enable the cluster monitoring stack (auto-increases memory to 14GiB) | No | `false` |
 | `enableTelemetry` | Enable telemetry for OpenShift Local | No | `true` |
 | `disableConnectivityCheck` | Disable the connectivity check for OpenShift Mirror | No | `false` |
+| `disableResourcePrecheck` | Disable the resource precheck (CPU, memory, disk capacity validation) | No | `false` |
 | `preloadImages` | Newline-separated list of container images to preload into the cluster registry | No | — |
 
 ## Outputs
