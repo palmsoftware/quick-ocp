@@ -40,6 +40,10 @@ inputs:
     description: 'Disable the connectivity check for OpenShift Mirror'
     required: false
     default: 'false'
+  disableResourcePrecheck:
+    description: 'Disable the resource precheck (CPU, memory, disk capacity validation)'
+    required: false
+    default: 'false'
   enableClusterMonitoring:
     description: 'Enable the cluster monitoring stack (requires minimum 14GiB memory)'
     required: false
@@ -103,6 +107,11 @@ runs:
       id: deployment_start
       shell: bash
       run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
+
+    - name: Precheck runner resources
+      if: ${{ inputs.disableResourcePrecheck != 'true' }}
+      shell: bash
+      run: ${{ github.action_path }}/scripts/precheck-resources.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.enableClusterMonitoring }}"
 
     - name: Check connectivity to required services
       if: ${{ inputs.disableConnectivityCheck != 'true' }}
