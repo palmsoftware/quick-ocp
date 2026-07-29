@@ -244,6 +244,10 @@ runs:
         echo "=== Cleanup complete ==="
       continue-on-error: true
 
+    - name: Ensure CRC DNS entries in /etc/hosts
+      shell: bash
+      run: ${{ github.action_path }}/scripts/ensure-crc-dns.sh
+
     - name: Bootstrap the runner with kubectl and oc clients
       shell: bash
       run: |
