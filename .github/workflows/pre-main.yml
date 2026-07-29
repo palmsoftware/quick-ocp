@@ -35,6 +35,17 @@ jobs:
       matrix:
         os: [ubuntu-26.04, ubuntu-24.04, ubuntu-22.04]
         ocp: ['4.18', '4.19', '4.20', '4.21', '4.22', 'latest']
+        exclude:
+          # CRC versions for OCP 4.18-4.21 (2.51-2.61) fail SSH on ubuntu-26.04.
+          # CRC 2.62.0+ (OCP 4.22+) handles this with more aggressive retries.
+          - os: ubuntu-26.04
+            ocp: '4.18'
+          - os: ubuntu-26.04
+            ocp: '4.19'
+          - os: ubuntu-26.04
+            ocp: '4.20'
+          - os: ubuntu-26.04
+            ocp: '4.21'
     runs-on: ${{ matrix.os }}
     env:
       SHELL: /bin/bash
