@@ -26,8 +26,23 @@ while [ $attempt -le $max_attempts ]; do
     break
   fi
 
-  if grep -qi "failed to update kubeconfig\|cannot update kubeconfig\|Failed to connect to the CRC VM with SSH\|Failed to update pull secret\|connection refused\|connection reset by peer" "$start_log"; then
-    echo "WARNING: CRC start failed with retryable error (exit code $start_exit_code)"
+  matched_pattern=""
+  for pattern in "failed to update kubeconfig:kubeconfig update" \
+    "cannot update kubeconfig:kubeconfig update" \
+    "Failed to connect to the CRC VM with SSH:SSH connection" \
+    "Failed to update pull secret:pull secret update" \
+    "connection refused:connection refused" \
+    "connection reset by peer:connection reset"; do
+    regex="${pattern%%:*}"
+    label="${pattern#*:}"
+    if grep -qi "$regex" "$start_log"; then
+      matched_pattern="$label"
+      break
+    fi
+  done
+
+  if [ -n "$matched_pattern" ]; then
+    echo "WARNING: CRC start failed with retryable error: $matched_pattern (exit code $start_exit_code)"
     if [ $attempt -lt $max_attempts ]; then
       echo "Stopping CRC and retrying..."
       sudo -su "$USER" crc stop || true
