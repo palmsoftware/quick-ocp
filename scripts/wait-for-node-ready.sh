@@ -16,7 +16,7 @@ curl -sk --connect-timeout 5 https://api.crc.testing:6443 2>&1 | head -3 || true
 # Wait for cluster to be ready and accessible
 echo "Waiting for cluster to be accessible..."
 while ! oc get nodes --request-timeout='30s' &>/dev/null; do
-  echo "Cluster not yet accessible, waiting..."
+  echo "Cluster not yet accessible, waiting... (${elapsed}s/${timeout}s)"
   sleep $interval
   elapsed=$((elapsed + interval))
   if [ $elapsed -ge $timeout ]; then
@@ -39,7 +39,7 @@ done
 
 # Wait for the node to be in Ready state
 while [[ $(oc get nodes --request-timeout='30s' -o json | jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status') == "False" ]]; do
-  echo "Waiting for node to be in Ready state"
+  echo "Waiting for node to be in Ready state... (${elapsed}s/${timeout}s)"
   sleep 5
   elapsed=$((elapsed + 5))
   if [ $elapsed -ge $timeout ]; then
