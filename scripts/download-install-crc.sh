@@ -27,6 +27,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
   MIRROR_BASE="https://mirror.openshift.com/pub/openshift-v4/clients/crc/$CRC_VERSION"
   CRC_FILENAME="crc-linux-$CRC_ARCH.tar.xz"
+  echo "Download URL: $MIRROR_BASE/$CRC_FILENAME"
 
   if curl -L -o crc.tar.xz "$MIRROR_BASE/$CRC_FILENAME"; then
     FILE_SIZE=$(stat -c%s crc.tar.xz 2>/dev/null || stat -f%z crc.tar.xz 2>/dev/null || echo 0)
