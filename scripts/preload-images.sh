@@ -21,6 +21,7 @@ echo "Waiting for image registry route..."
 timeout=120
 elapsed=0
 while ! oc get route default-route -n openshift-image-registry &>/dev/null; do
+  echo "Waiting for image registry route... (${elapsed}s/${timeout}s)"
   sleep 5
   elapsed=$((elapsed + 5))
   if [ $elapsed -ge $timeout ]; then
