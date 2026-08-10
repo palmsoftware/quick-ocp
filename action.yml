@@ -113,6 +113,22 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/precheck-resources.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.enableClusterMonitoring }}"
 
+    - name: Validate desiredOCPVersion input
+      shell: bash
+      run: |
+        VERSION="${{ inputs.desiredOCPVersion }}"
+        # Normalize YAML float parsing (4.2 -> 4.20)
+        if [[ "$VERSION" =~ ^4\.([0-9]+)$ ]]; then
+          MINOR="${BASH_REMATCH[1]}"
+          if [ ${#MINOR} -eq 1 ] && [ "$MINOR" -ge 2 ]; then
+            VERSION="4.${MINOR}0"
+          fi
+        fi
+        if [ "$VERSION" != "latest" ] && [[ ! "$VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
+          echo "[ERROR] Invalid desiredOCPVersion: '${{ inputs.desiredOCPVersion }}'. Supported values are 4.18 and above, or 'latest'." >&2
+          exit 1
+        fi
+
     - name: Check connectivity to required services
       if: ${{ inputs.disableConnectivityCheck != 'true' }}
       shell: bash
