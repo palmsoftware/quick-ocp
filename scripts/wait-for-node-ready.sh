@@ -38,6 +38,7 @@ while ! oc get nodes --request-timeout='30s' &>/dev/null; do
 done
 
 # Wait for the node to be in Ready state
+elapsed=0
 while [[ $(oc get nodes --request-timeout='30s' -o json | jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status') == "False" ]]; do
   echo "Waiting for node to be in Ready state... (${elapsed}s/${timeout}s)"
   sleep 5

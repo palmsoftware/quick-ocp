@@ -9,8 +9,18 @@ timeout="${1:-600}"
 elapsed=0
 interval=10
 
+excluded=$(oc get clusterversion/version -ojsonpath='{range .spec.overrides[?(@.kind=="ClusterOperator")]}{.name}{"\n"}{end}' 2>/dev/null || true)
+if [ -n "$excluded" ]; then
+  exclude_pattern=$(echo "$excluded" | paste -sd'|')
+  echo "Excluding unmanaged operators from readiness check: $(echo "$excluded" | paste -sd', ')"
+fi
+
 while true; do
-  co_status=$(oc get co --no-headers)
+  if [ -n "${exclude_pattern:-}" ]; then
+    co_status=$(oc get co --no-headers | grep -v -E "^($exclude_pattern) ")
+  else
+    co_status=$(oc get co --no-headers)
+  fi
   not_ready=$(echo "$co_status" | awk '$3 != "True" || $4 != "False" || $5 != "False" {print "  " $1, "Available="$3, "Progressing="$4, "Degraded="$5}')
 
   if [ -z "$not_ready" ]; then
