@@ -63,15 +63,21 @@ while IFS= read -r IMAGE; do
 
   echo "--- Mirroring: $IMAGE -> $REGISTRY/openshift/$IMAGE_NAME ---"
 
-  if oc image mirror \
+  mirror_output=$(oc image mirror \
     "$IMAGE" \
     "$REGISTRY/openshift/$IMAGE_NAME" \
     --insecure=true \
-    --keep-manifest-list=true 2>&1; then
+    --keep-manifest-list=true 2>&1) && mirror_rc=0 || mirror_rc=$?
+
+  if [ "$mirror_rc" -eq 0 ]; then
     echo "OK: $IMAGE"
     SUCCESS=$((SUCCESS + 1))
   else
+    mirror_error=$(echo "$mirror_output" | grep -i "error" | tail -3)
     echo "FAILED: $IMAGE"
+    if [ -n "$mirror_error" ]; then
+      echo "$mirror_error"
+    fi
     FAILED=$((FAILED + 1))
     FAILED_IMAGES="$FAILED_IMAGES  - $IMAGE\n"
   fi
