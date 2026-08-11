@@ -125,9 +125,8 @@ check_root() {
 
 check_prereq() {
 
-  #Check for wget
-  if [ ! "$(command -v wget)" ]; then
-    echo "wget not found. Please install wget."
+  if [ ! "$(command -v curl)" ]; then
+    echo "curl not found. Please install curl."
     exit 1
   fi
 
@@ -368,21 +367,13 @@ nightly() {
 
 download() {
 
-  echo -n "Downloading $(echo "$1" | awk -F/ '{ print $NF }'):    "
-  wget --progress=dot "$1" -O "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" 2>&1 |
-    grep --line-buffered "%" |
-    sed -e "s,\.,,g" |
-    awk '{printf("\b\b\b\b%4s", $2)}'
-  echo -ne "\b\b\b\b"
-  echo " Download Complete."
+  echo "Downloading $(echo "$1" | awk -F/ '{ print $NF }')..."
+  curl -# -L -o "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" "$1"
+  echo "Download Complete."
 
-  echo -n "Downloading $(echo "$2" | awk -F/ '{ print $NF }'):    "
-  wget --progress=dot "$2" -O "/tmp/$(echo "$2" | awk -F/ '{ print $NF }')" 2>&1 |
-    grep --line-buffered "%" |
-    sed -e "s,\.,,g" |
-    awk '{printf("\b\b\b\b%4s", $2)}'
-  echo -ne "\b\b\b\b"
-  echo " Download Complete."
+  echo "Downloading $(echo "$2" | awk -F/ '{ print $NF }')..."
+  curl -# -L -o "/tmp/$(echo "$2" | awk -F/ '{ print $NF }')" "$2"
+  echo "Download Complete."
 
   backup extract
 
@@ -619,13 +610,9 @@ download_cli() {
   check_root
 
   filename=$(echo "$1" | awk -F/ '{ print $NF }')
-  echo -n "Downloading $filename:    "
-  wget --progress=dot "$1" -O "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" 2>&1 |
-    grep --line-buffered "%" |
-    sed -e "s,\.,,g" |
-    awk '{printf("\b\b\b\b%4s", $2)}'
-  echo -ne "\b\b\b\b"
-  echo " Download Complete."
+  echo "Downloading $filename..."
+  curl -# -L -o "/tmp/$filename" "$1"
+  echo "Download Complete."
 
   if [[ "$2" == "serverless" ]]; then
     tar -zxf "/tmp/$(echo "$1" | awk -F/ '{ print $NF }')" -C "${BIN_PATH}"
