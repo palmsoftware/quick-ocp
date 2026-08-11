@@ -225,7 +225,7 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 **Mitigations:**
 - The action automatically creates swap on `/mnt` and protects CRC/QEMU processes from the OOM killer.
 - Use `bundleCache: true` to avoid downloading the 3-5 GB bundle during the job, freeing memory during the critical startup window.
-- Reduce `crcMemory` if your tests don't need the full allocation (minimum ~9216 MB for a functional cluster).
+- Reduce `crcMemory` if your tests don't need the full allocation (minimum 10752 MB, which is CRC's recommended minimum).
 - Avoid running memory-intensive steps before `crc start` completes.
 
 ### Disk Space Exhaustion

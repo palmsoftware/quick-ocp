@@ -149,15 +149,23 @@ restore() {
   fi
 
   if ls "${BIN_PATH}/oc.${VERSION}.bak" 1>/dev/null 2>&1 && ls "${BIN_PATH}/openshift-install.${VERSION}.bak" 1>/dev/null 2>&1 && ls "${BIN_PATH}/kubectl.${VERSION}.bak" 1>/dev/null 2>&1; then
-    read -rp "Found backup of version ${VERSION}. Restore?
-    $(echo -e "\nY/N? ")"
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ ! -t 0 ]; then
+      echo "Non-interactive mode: restoring backup of version ${VERSION}..."
       backup restore
       for i in openshift-install oc kubectl; do mv "${BIN_PATH}/${i}.${VERSION}.bak" "${BIN_PATH}/${i}"; done
       show_ver
       exit 0
-    elif [[ $REPLY =~ ^[Nn]$ ]]; then
-      echo "Downloading files..."
+    else
+      read -rp "Found backup of version ${VERSION}. Restore?
+      $(echo -e "\nY/N? ")"
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        backup restore
+        for i in openshift-install oc kubectl; do mv "${BIN_PATH}/${i}.${VERSION}.bak" "${BIN_PATH}/${i}"; done
+        show_ver
+        exit 0
+      elif [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo "Downloading files..."
+      fi
     fi
   fi
 
@@ -166,15 +174,23 @@ restore() {
 restore_version() {
 
   if ls "${BIN_PATH}/oc.${1}.bak" 1>/dev/null 2>&1 && ls "${BIN_PATH}/openshift-install.${1}.bak" 1>/dev/null 2>&1 && ls "${BIN_PATH}/kubectl.${1}.bak" 1>/dev/null 2>&1; then
-    read -rp "Found backup of version $1. Restore?
-    $(echo -e "\nY/N? ")"
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ ! -t 0 ]; then
+      echo "Non-interactive mode: restoring backup of version ${1}..."
       backup restore
       for i in openshift-install oc kubectl; do mv "${BIN_PATH}/${i}.${1}.bak" "${BIN_PATH}/${i}"; done
       show_ver
       exit 0
-    elif [[ $REPLY =~ ^[Nn]$ ]]; then
-      echo "Downloading files..."
+    else
+      read -rp "Found backup of version $1. Restore?
+      $(echo -e "\nY/N? ")"
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        backup restore
+        for i in openshift-install oc kubectl; do mv "${BIN_PATH}/${i}.${1}.bak" "${BIN_PATH}/${i}"; done
+        show_ver
+        exit 0
+      elif [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo "Downloading files..."
+      fi
     fi
   fi
 
@@ -411,6 +427,10 @@ cleanup() {
 remove_old_ver() {
 
   if ls "${BIN_PATH}"/oc*bak 1>/dev/null 2>&1 && ls "${BIN_PATH}"/openshift-install*bak 1>/dev/null 2>&1 && ls "${BIN_PATH}"/kubectl*bak 1>/dev/null 2>&1; then
+    if [ ! -t 0 ]; then
+      echo "Non-interactive mode: skipping cleanup of old versions"
+      exit 0
+    fi
     read -rp "Delete the following files?
 $(echo -e "\n")
 $(for i in oc kubectl openshift-install; do ls -1 "${BIN_PATH}"/$i*bak 2>/dev/null; done)
@@ -437,6 +457,10 @@ uninstall() {
   check_root
 
   if ls "${BIN_PATH}"/oc 1>/dev/null 2>&1 && ls "${BIN_PATH}"/openshift-install 1>/dev/null 2>&1 && ls "${BIN_PATH}"/kubectl 1>/dev/null 2>&1; then
+    if [ ! -t 0 ]; then
+      echo "Non-interactive mode: skipping uninstall"
+      exit 0
+    fi
     read -rp "Delete the following files?
 $(echo -e "\n")
 $(for i in oc kubectl openshift-install; do ls -1 "${BIN_PATH}"/$i 2>/dev/null; done)
