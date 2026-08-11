@@ -18,6 +18,8 @@ for pid in $(pgrep -f "^crc .*start|crc-driver" || true); do
   fi
 done
 
+PID_FILE="/tmp/crc-oom-watchdog.pid"
+
 # Lightweight watchdog to periodically re-apply in case of restarts
 (while true; do
   for pid in $(pgrep -f "qemu-system-x86_64|qemu-kvm" || true); do
@@ -30,3 +32,6 @@ done
   done
   sleep 15
 done) >/dev/null 2>&1 &
+WATCHDOG_PID=$!
+echo "$WATCHDOG_PID" >"$PID_FILE"
+echo "OOM watchdog started (PID $WATCHDOG_PID)"
