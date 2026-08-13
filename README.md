@@ -67,10 +67,15 @@ steps:
 | `crcCpu` | CPU allocation for OpenShift Local | No | `4` |
 | `crcDiskSize` | Disk size in GB for OpenShift Local | No | `31` |
 | `waitForOperatorsReady` | Wait for all operators to be ready | No | `false` |
+| `operatorTimeout` | Timeout in seconds for waiting for operators to become ready | No | `600` |
 | `enableClusterMonitoring` | Enable the cluster monitoring stack (auto-increases memory to 14GiB) | No | `false` |
 | `enableTelemetry` | Enable telemetry for OpenShift Local | No | `true` |
 | `disableConnectivityCheck` | Disable the connectivity check for OpenShift Mirror | No | `false` |
 | `disableResourcePrecheck` | Disable the resource precheck (CPU, memory, disk capacity validation) | No | `false` |
+| `httpProxy` | HTTP proxy URL for CRC (e.g., `http://proxy.example.com:8080`) | No | — |
+| `httpsProxy` | HTTPS proxy URL for CRC (e.g., `http://proxy.example.com:8080`) | No | — |
+| `noProxy` | Comma-separated list of hosts/domains to exclude from proxying | No | — |
+| `proxyCaFile` | Path to a CA certificate file for the proxy | No | — |
 | `preloadImages` | Newline-separated list of container images to preload into the cluster registry | No | — |
 
 ## Outputs
@@ -82,6 +87,9 @@ steps:
 | `api-url` | The OpenShift API server URL (`https://api.crc.testing:6443`) |
 | `console-url` | The OpenShift web console URL |
 | `kubeadmin-password` | The kubeadmin password for cluster authentication (masked in logs) |
+| `kubeconfig-path` | The path to the kubeconfig file for cluster access |
+| `cache-hit` | Whether the CRC bundle cache was hit (`true`, `false`, or `disabled`) |
+| `setup-duration` | Total deployment time in seconds |
 
 # OpenShift Local
 
