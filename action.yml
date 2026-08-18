@@ -1,5 +1,5 @@
 name: 'Quick OCP'
-description: 'Quickly deploy an OpenShift cluster on Github Actions hosted runners'
+description: 'Quickly deploy an OpenShift cluster on GitHub Actions hosted runners'
 inputs:
   ocpPullSecret:
     description: 'Pull secret for OpenShift Local'

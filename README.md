@@ -4,11 +4,11 @@
 [![Test Changes](https://github.com/palmsoftware/quick-ocp/actions/workflows/pre-main.yml/badge.svg)](https://github.com/palmsoftware/quick-ocp/actions/workflows/pre-main.yml)
 [![Update Major Version Tag](https://github.com/palmsoftware/quick-ocp/actions/workflows/update-major-tag.yml/badge.svg)](https://github.com/palmsoftware/quick-ocp/actions/workflows/update-major-tag.yml)
 
-Quickly spawns an OCP cluster using [OpenShift Local](https://developers.redhat.com/products/openshift-local/overview) for use on Github Actions.
+Quickly spawns an OCP cluster using [OpenShift Local](https://developers.redhat.com/products/openshift-local/overview) for use on GitHub Actions.
 
 This will work on the free tier lowest resource runners at the moment with additional runner support added later if needed.
 
-Read more about Github Actions runners [here](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners).
+Read more about GitHub Actions runners [here](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners).
 
 If you are looking to quickly spawn Kubernetes in your Action runner, try [quick-k8s](https://github.com/palmsoftware/quick-k8s).
 
@@ -16,19 +16,19 @@ If you are looking to quickly spawn Kubernetes in your Action runner, try [quick
 
 This action is tested on the following GitHub Actions runners:
 
-- `ubuntu-26.04`
+- `ubuntu-26.04` (OCP `4.22` and `latest` only — older OCP versions fail SSH during CRC start)
 - `ubuntu-24.04`
 - `ubuntu-22.04`
 
-# Known Limitations:
+# Known Limitations
 
 - `ubuntu-20.04` is not supported due to the version of `libvirt` available in the mirrors not meeting the minimum version required by OpenShift Local.
 
-# Connectivity Requirements:
+# Connectivity Requirements
 
 This action requires network access to the **OpenShift Mirror** (`https://mirror.openshift.com`) for downloading CRC binaries and OpenShift client tools.
 
-The action includes an automatic connectivity check that runs at the beginning of each workflow. If the OpenShift Mirror is unreachable, the action will fail gracefully with a clear error message.
+The action includes an automatic connectivity check that runs at the beginning of each workflow. It verifies reachability of the OpenShift Mirror (required) and the GitHub API (optional, non-fatal). If the OpenShift Mirror is unreachable, the action will fail gracefully with a clear error message.
 
 You can disable this check by setting `disableConnectivityCheck: true` in your workflow:
 
@@ -39,11 +39,11 @@ with:
 
 Note: Disabling this check is not recommended as it may result in less clear error messages if connectivity issues occur during the workflow.
 
-# Usage:
+# Usage
 
 Basic Usage:
 
-You will need to supply your OCP Pull Secret as a Github Actions Secret.  Your pull secret can be acquired from [here](https://console.redhat.com/openshift/install/pull-secret).  Click on "Download Pull Secret" and copy the contents into your secret.
+You will need to supply your OCP Pull Secret as a GitHub Actions Secret. Your pull secret can be acquired from [here](https://console.redhat.com/openshift/install/pull-secret). Click on "Download Pull Secret" and copy the contents into your secret.
 
 ```yaml
 steps:
@@ -91,16 +91,6 @@ steps:
 | `cache-hit` | Whether the CRC bundle cache was hit (`true`, `false`, or `disabled`) |
 | `setup-duration` | Total deployment time in seconds |
 
-# OpenShift Local
-
-https://developers.redhat.com/products/openshift-local/overview
-
-This is development only environment that is provided by Red Hat that will allow you do some quick testing in a full OpenShift environment.
-
-## References
-
-- [install-oc-tools.sh](./scripts/install-oc-tools.sh) was a script copied from [install-oc-tools](https://github.com/cptmorgan-rh/install-oc-tools) and slightly modified for `aarch64`.
-
 ## OpenShift Version Selection
 
 You can control which OpenShift version is deployed by setting the `desiredOCPVersion` input variable. For example:
@@ -110,12 +100,12 @@ with:
   desiredOCPVersion: 4.18
 ```
 
-- The default is `latest`, which will use the most recent supported version.  If you leave `desiredOCPVersion` blank, you will get the latest version.
+- The default is `latest`, which will use the most recent supported version. If you leave `desiredOCPVersion` blank, you will get the latest version.
 - Supported values are `4.18`, `4.19`, `4.20`, `4.21`, `4.22`, and `latest`.
 
 **Note:** YAML parsers interpret `4.20` as a floating-point number and convert it to `4.2`. The action automatically normalizes this back to `4.20`, so you don't need to quote version numbers in your workflow files.
 
-For more details, see the [action.yml](action.yml) and workflow examples.
+For more details, see [action.yml](action.yml) and the [reusable workflow examples](.github/workflows/reusable-ocp-tests.yml).
 
 ## CRC Version Control
 
@@ -233,7 +223,7 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 **Mitigations:**
 - The action automatically creates swap on `/mnt` and protects CRC/QEMU processes from the OOM killer.
 - Use `bundleCache: true` to avoid downloading the 3-5 GB bundle during the job, freeing memory during the critical startup window.
-- Reduce `crcMemory` if your tests don't need the full allocation (minimum 10752 MB, which is CRC's recommended minimum).
+- Do not increase `crcMemory` above what your tests require. The default of 10,752 MB is CRC's minimum; lowering it is not supported.
 - Avoid running memory-intensive steps before `crc start` completes.
 
 ### Disk Space Exhaustion
@@ -251,7 +241,7 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 
 **Symptom:** The `Run setup` step fails after one or more retries with errors like `Failed to connect to the CRC VM with SSH`, `connection refused`, or `Failed to update pull secret`.
 
-**Cause:** CRC start can fail transiently due to VM boot timing, SSH connectivity, or resource pressure. The action retries up to 3 times with a 30-second delay between attempts.
+**Cause:** CRC start can fail transiently due to VM boot timing, SSH connectivity, or resource pressure. The action retries up to 3 times with a 10-second delay between attempts.
 
 **What to check:**
 - Expand the **CRC Setup and Start** group in the job log to see the full output from each attempt.
@@ -273,9 +263,13 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 
 **Symptom:** The job fails at the `Check connectivity to required services` step.
 
-**Cause:** The OpenShift Mirror (`mirror.openshift.com`) or Red Hat SSO is unreachable. This can happen during Red Hat maintenance windows.
+**Cause:** The OpenShift Mirror (`mirror.openshift.com`) is unreachable. This can happen during Red Hat maintenance windows.
 
 **What to check:**
 - Check [Red Hat Status](https://status.redhat.com/) for ongoing incidents.
 - The GitHub API connectivity check is non-fatal — a warning is logged but the job continues.
 - If the mirror is consistently down, you can use `disableConnectivityCheck: true` to skip the check, but the download step will still fail if the mirror is actually unreachable.
+
+## References
+
+- [install-oc-tools.sh](./scripts/install-oc-tools.sh) was adapted from [install-oc-tools](https://github.com/cptmorgan-rh/install-oc-tools) with modifications for `aarch64`.
