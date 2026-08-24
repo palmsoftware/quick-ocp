@@ -321,6 +321,11 @@ runs:
         echo "::endgroup::"
       continue-on-error: true
 
+    - name: Stop OOM watchdog
+      if: always()
+      shell: bash
+      run: ${{ github.action_path }}/scripts/stop-oom-watchdog.sh
+
     - name: Calculate deployment duration
       if: always()
       id: deployment_duration
