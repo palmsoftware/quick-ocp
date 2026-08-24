@@ -26,6 +26,18 @@ jobs:
       - name: Lint shell scripts
         run: make lint
 
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install BATS
+        run: sudo apt-get install -y bats
+
+      - name: Run BATS unit tests
+        run: make test
+
   ocp-tests:
     uses: ./.github/workflows/reusable-ocp-tests.yml
     with:
