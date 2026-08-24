@@ -1,4 +1,4 @@
-.PHONY: lint fix-lint help
+.PHONY: lint fix-lint test help
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -14,4 +14,8 @@ fix-lint: ## Fix shell script formatting issues
 	@echo "Fixing shell script formatting in scripts/ directory..."
 	@shfmt -w -i 2 -ci scripts/*.sh
 	@echo "All shell scripts have been formatted!"
+
+test: ## Run BATS unit tests for core validation scripts
+	@echo "Running BATS tests..."
+	@bats tests/
 
