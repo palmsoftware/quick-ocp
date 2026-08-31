@@ -15,6 +15,7 @@ teardown() {
   unset PULL_SECRET
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "PULL_SECRET environment variable is not set" ]]
 }
 
@@ -22,6 +23,7 @@ teardown() {
   export PULL_SECRET=""
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "PULL_SECRET environment variable is not set" ]]
 }
 
@@ -29,6 +31,7 @@ teardown() {
   export PULL_SECRET="not-json"
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "not valid JSON" ]]
 }
 
@@ -36,6 +39,7 @@ teardown() {
   export PULL_SECRET='{"other": "value"}'
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "auths" ]]
 }
 
@@ -43,6 +47,7 @@ teardown() {
   export PULL_SECRET='{"auths": {}}'
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "auths" ]]
 }
 

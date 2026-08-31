@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+gha_error() {
+  echo "::error::$1" >&2
+  echo "[ERROR] $1" >&2
+}
+
 DESIRED_OCP_VERSION="$1"
 ACTION_PATH="$2"
 EXPLICIT_CRC_VERSION="${3:-}"
@@ -56,7 +61,7 @@ if [ "$DESIRED_OCP_VERSION" = "latest" ]; then
 else
   # Only allow OCP versions 4.18 and above
   if [[ ! "$DESIRED_OCP_VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]] && [[ "$DESIRED_OCP_VERSION" != "latest" ]]; then
-    echo "[ERROR] Only OpenShift versions 4.18 and above are supported in this action." >&2
+    gha_error "Only OpenShift versions 4.18 and above are supported in this action."
     exit 1
   fi
 
@@ -64,8 +69,7 @@ else
   CRC_VERSION=$("$ACTION_PATH/scripts/fetch-ocp-crc-version.sh" "$DESIRED_OCP_VERSION")
   echo "Script returned: $CRC_VERSION"
   if [[ $CRC_VERSION == No* ]] || [[ $CRC_VERSION == Error* ]]; then
-    echo "[ERROR] The requested OpenShift version ($DESIRED_OCP_VERSION) is not supported or no matching CRC release was found." >&2
-    echo "Details: $CRC_VERSION" >&2
+    gha_error "The requested OpenShift version ($DESIRED_OCP_VERSION) is not supported or no matching CRC release was found. Details: $CRC_VERSION"
     echo "Please choose a supported OCP version (e.g., 4.18 or above) or check https://github.com/crc-org/crc/releases for available versions." >&2
     exit 1
   fi

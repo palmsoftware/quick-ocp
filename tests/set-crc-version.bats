@@ -51,10 +51,12 @@ teardown() {
 @test "rejects unsupported OCP version (4.17)" {
   run bash "$SCRIPT" "4.17" "$TMPDIR" ""
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "Only OpenShift versions 4.18 and above are supported" ]]
 }
 
 @test "rejects completely invalid OCP version string" {
   run bash "$SCRIPT" "invalid" "$TMPDIR" ""
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
 }
