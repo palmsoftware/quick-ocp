@@ -130,6 +130,10 @@ runs:
           exit 1
         fi
 
+    - name: Validate runner compatibility
+      shell: bash
+      run: ${{ github.action_path }}/scripts/validate-runner.sh "${{ inputs.desiredOCPVersion }}"
+
     - name: Check connectivity to required services
       if: ${{ inputs.disableConnectivityCheck != 'true' }}
       shell: bash
