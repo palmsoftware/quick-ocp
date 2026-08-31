@@ -125,6 +125,7 @@ runs:
           fi
         fi
         if [ "$VERSION" != "latest" ] && [[ ! "$VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
+          echo "::error::Invalid desiredOCPVersion: '${{ inputs.desiredOCPVersion }}'. Supported values are 4.18 and above, or 'latest'." >&2
           echo "[ERROR] Invalid desiredOCPVersion: '${{ inputs.desiredOCPVersion }}'. Supported values are 4.18 and above, or 'latest'." >&2
           exit 1
         fi

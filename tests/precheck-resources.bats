@@ -61,6 +61,7 @@ teardown() {
   fi
   run bash "$SCRIPT" "4" "10752" "false"
   [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "CPU" ]]
 }
 

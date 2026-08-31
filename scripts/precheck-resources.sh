@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+gha_error() {
+  echo "::error::$1" >&2
+  echo "[ERROR] $1" >&2
+}
+
 CRC_CPU="$1"
 CRC_MEMORY="$2"
 ENABLE_CLUSTER_MONITORING="$3"
@@ -123,6 +128,7 @@ else
   echo ""
   echo "The following requirements are not met:"
   for check in "${FAILED_CHECKS[@]}"; do
+    gha_error "Resource precheck: $check"
     echo "  - $check"
   done
   echo ""

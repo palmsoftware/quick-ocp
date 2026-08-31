@@ -7,16 +7,21 @@ CRC_DISK_SIZE="$3"
 ENABLE_TELEMETRY="$4"
 ENABLE_CLUSTER_MONITORING="$5"
 
+gha_error() {
+  echo "::error::$1" >&2
+  echo "[ERROR] $1" >&2
+}
+
 validate_numeric() {
   local name="$1"
   local value="$2"
   local min="$3"
   if ! [[ "$value" =~ ^[0-9]+$ ]]; then
-    echo "ERROR: $name must be a positive integer, got: '$value'" >&2
+    gha_error "$name must be a positive integer, got: '$value'"
     exit 1
   fi
   if [ "$value" -lt "$min" ]; then
-    echo "ERROR: $name must be at least $min, got: $value" >&2
+    gha_error "$name must be at least $min, got: $value"
     exit 1
   fi
 }
