@@ -24,15 +24,30 @@ fi
 
 echo "Desired OCP Version: $DESIRED_OCP_VERSION"
 
-# If an explicit CRC version is provided, use it directly
+VERSION_PINS_FILE="$ACTION_PATH/crc-version-pins.json"
+
+# If an explicit CRC version is provided, validate and use it
 if [ -n "$EXPLICIT_CRC_VERSION" ]; then
+  if [ -f "$VERSION_PINS_FILE" ]; then
+    if jq -e --arg v "$EXPLICIT_CRC_VERSION" \
+      '[.known_issues[].broken_versions[]?] | index($v) != null' \
+      "$VERSION_PINS_FILE" >/dev/null 2>&1; then
+      OCP_ISSUE=$(jq -r --arg v "$EXPLICIT_CRC_VERSION" \
+        '.known_issues | to_entries[] | select(.value.broken_versions | contains([$v])) | .key' \
+        "$VERSION_PINS_FILE" | head -1)
+      ISSUE_URL=$(jq -r --arg ocp "$OCP_ISSUE" '.known_issues[$ocp].issue // empty' "$VERSION_PINS_FILE")
+      WORKING_VERSION=$(jq -r --arg ocp "$OCP_ISSUE" '.known_issues[$ocp].working_version // empty' "$VERSION_PINS_FILE")
+      DESCRIPTION=$(jq -r --arg ocp "$OCP_ISSUE" '.known_issues[$ocp].description // empty' "$VERSION_PINS_FILE")
+      gha_error "CRC version $EXPLICIT_CRC_VERSION is a known broken release for OCP $OCP_ISSUE. $DESCRIPTION Use crcVersion: $WORKING_VERSION instead. See: $ISSUE_URL"
+      exit 1
+    fi
+  fi
   echo "✓ Using explicitly specified CRC version: $EXPLICIT_CRC_VERSION"
   echo "crc_version=$EXPLICIT_CRC_VERSION" >>"$GITHUB_OUTPUT"
   exit 0
 fi
 
 # Check if there's a pinned version (even for 'latest')
-VERSION_PINS_FILE="$ACTION_PATH/crc-version-pins.json"
 if [ -f "$VERSION_PINS_FILE" ]; then
   echo "Checking version pins file..."
   PINNED_VERSION=$(jq -r --arg ocp "$DESIRED_OCP_VERSION" '.version_pins[$ocp] // "auto"' "$VERSION_PINS_FILE")
