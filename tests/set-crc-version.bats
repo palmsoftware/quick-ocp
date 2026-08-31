@@ -48,6 +48,33 @@ teardown() {
   grep -q "crc_version=latest" "$GITHUB_OUTPUT"
 }
 
+@test "rejects known broken explicit CRC version (2.55.0)" {
+  run bash "$SCRIPT" "4.19" "$REPO_ROOT" "2.55.0"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
+  [[ "$output" =~ "known broken release" ]]
+  [[ "$output" =~ "2.54.0" ]]
+}
+
+@test "rejects known broken explicit CRC version (2.55.1)" {
+  run bash "$SCRIPT" "4.19" "$REPO_ROOT" "2.55.1"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::" ]]
+  [[ "$output" =~ "known broken release" ]]
+}
+
+@test "allows working explicit CRC version (2.54.0)" {
+  run bash "$SCRIPT" "4.19" "$REPO_ROOT" "2.54.0"
+  [ "$status" -eq 0 ]
+  grep -q "crc_version=2.54.0" "$GITHUB_OUTPUT"
+}
+
+@test "allows explicit CRC version when pins file is missing" {
+  run bash "$SCRIPT" "4.19" "$TMPDIR" "2.55.0"
+  [ "$status" -eq 0 ]
+  grep -q "crc_version=2.55.0" "$GITHUB_OUTPUT"
+}
+
 @test "rejects unsupported OCP version (4.17)" {
   run bash "$SCRIPT" "4.17" "$TMPDIR" ""
   [ "$status" -eq 1 ]
