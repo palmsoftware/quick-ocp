@@ -38,6 +38,15 @@ jobs:
       - name: Run BATS unit tests
         run: make test
 
+  check-cache-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check Quay cache images exist for all pinned OCP versions
+        run: make check-image-cache
+
   ocp-tests:
     uses: ./.github/workflows/reusable-ocp-tests.yml
     with:

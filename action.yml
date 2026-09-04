@@ -245,9 +245,27 @@ runs:
       run: ${{ github.action_path }}/scripts/configure-crc.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.crcDiskSize }}" "${{ inputs.enableTelemetry }}" "${{ inputs.enableClusterMonitoring }}"
 
     - name: Run setup
+      id: crc-setup
+      continue-on-error: true
       shell: bash
       run: |
         echo "::group::CRC Setup and Start"
+        ${{ github.action_path }}/scripts/run-crc-setup.sh
+        echo "::endgroup::"
+
+    - name: Pull bundle from image cache (fallback)
+      id: bundle-fallback
+      if: steps.crc-setup.outcome == 'failure'
+      shell: bash
+      env:
+        OCP_VERSION: ${{ inputs.desiredOCPVersion }}
+      run: ${{ github.action_path }}/scripts/pull-bundle-from-image-cache.sh
+
+    - name: Retry setup after bundle recovery
+      if: steps.bundle-fallback.outcome == 'success'
+      shell: bash
+      run: |
+        echo "::group::CRC Setup and Start (retry after bundle recovery)"
         ${{ github.action_path }}/scripts/run-crc-setup.sh
         echo "::endgroup::"
 

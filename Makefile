@@ -1,4 +1,4 @@
-.PHONY: lint fix-lint test help
+.PHONY: lint fix-lint test check-image-cache help
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -18,4 +18,7 @@ fix-lint: ## Fix shell script formatting issues
 test: ## Run BATS unit tests for core validation scripts
 	@echo "Running BATS tests..."
 	@bats tests/
+
+check-image-cache: ## Check that all Quay cache images exist for pinned OCP versions
+	@scripts/check-image-cache.sh
 
