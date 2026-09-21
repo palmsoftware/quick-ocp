@@ -16,7 +16,7 @@ If you are looking to quickly spawn Kubernetes in your Action runner, try [quick
 
 This action is tested on the following GitHub Actions runners:
 
-- `ubuntu-26.04` (OCP `4.22` and `latest` only — older OCP versions fail SSH during CRC start)
+- `ubuntu-26.04` (OCP `4.22` and `latest` only — older OCP versions fail SSH during CRC start; libvirt AppArmor is disabled automatically to allow CRC start with split OVMF packages)
 - `ubuntu-24.04`
 - `ubuntu-22.04`
 

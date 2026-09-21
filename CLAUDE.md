@@ -43,6 +43,7 @@ Tested on `ubuntu-22.04`, `ubuntu-24.04`, and `ubuntu-26.04`.
 
 - `ubuntu-20.04` is unsupported (libvirt too old).
 - On `ubuntu-26.04`, use OCP `4.22` or `latest` — older OCP versions fail SSH during CRC start.
+- On `ubuntu-26.04`, the action sets libvirt `security_driver = "none"` so AppArmor/`virt-aa-helper` does not reject `OVMF.amdsev.fd` during CRC start.
 
 ## External Dependencies
 

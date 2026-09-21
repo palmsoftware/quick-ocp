@@ -28,6 +28,22 @@ elif [[ "$UBUNTU_VERSION" == "26.04" ]]; then
     sudo systemctl start libvirtd.socket
   fi
   sudo modprobe vhost_vsock || true
+
+  # Ubuntu 26.04 ships split OVMF packages (ovmf-amdsev). virt-aa-helper rejects
+  # /usr/share/ovmf/OVMF.amdsev.fd as a restricted file, so CRC fails to start
+  # with "cannot load AppArmor profile". Disable the libvirt security driver on
+  # ephemeral GHA runners — CRC does not need AMD SEV there.
+  echo "Disabling libvirt AppArmor security driver (ubuntu-26.04 OVMF.amdsev workaround)"
+  if grep -qE '^\s*security_driver\s*=' /etc/libvirt/qemu.conf 2>/dev/null; then
+    sudo sed -i 's/^\s*#\?\s*security_driver\s*=.*/security_driver = "none"/' /etc/libvirt/qemu.conf
+  else
+    echo 'security_driver = "none"' | sudo tee -a /etc/libvirt/qemu.conf >/dev/null
+  fi
+  if systemctl list-unit-files | grep -q '^libvirtd\.service'; then
+    sudo systemctl restart libvirtd
+  elif systemctl list-unit-files | grep -q '^virtqemud\.service'; then
+    sudo systemctl restart virtqemud
+  fi
 else
   echo "Installing base dependencies for Ubuntu $UBUNTU_VERSION"
   sudo apt-get install -y "${COMMON_PACKAGES[@]}"
