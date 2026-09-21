@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-timeout=900 # 15 minutes in seconds
+timeout="${WAIT_FOR_NODE_READY_TIMEOUT:-900}" # 15 minutes in seconds
 elapsed=0
 interval=10
 
@@ -19,7 +19,7 @@ while ! oc get nodes --request-timeout='30s' &>/dev/null; do
   echo "Cluster not yet accessible, waiting... (${elapsed}s/${timeout}s)"
   sleep $interval
   elapsed=$((elapsed + interval))
-  if [ $elapsed -ge $timeout ]; then
+  if [ "$elapsed" -ge "$timeout" ]; then
     echo "Timeout reached: Cluster not accessible after ${timeout}s"
     echo ""
     echo "=== CRC Status ==="
@@ -37,14 +37,55 @@ while ! oc get nodes --request-timeout='30s' &>/dev/null; do
   fi
 done
 
+# Return the CRC node's KubeletReady status as True, False, or unknown.
+get_node_readiness() {
+  local nodes_json readiness
+
+  if ! nodes_json=$(oc get nodes --request-timeout='30s' -o json); then
+    echo "Unable to query node readiness: oc get nodes failed; treating the node as not ready." >&2
+    echo "unknown"
+    return 0
+  fi
+
+  if ! readiness=$(jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status' <<<"$nodes_json"); then
+    echo "Unable to query node readiness: jq could not parse the node data; treating the node as not ready." >&2
+    echo "unknown"
+    return 0
+  fi
+
+  case "$readiness" in
+    True | False)
+      echo "$readiness"
+      ;;
+    "")
+      echo "Node api.crc.testing or its KubeletReady condition is missing; treating the node as not ready." >&2
+      echo "unknown"
+      ;;
+    *)
+      echo "Node api.crc.testing returned unexpected KubeletReady status '$readiness'; treating the node as not ready." >&2
+      echo "unknown"
+      ;;
+  esac
+}
+
 # Wait for the node to be in Ready state
 elapsed=0
-while [[ $(oc get nodes --request-timeout='30s' -o json | jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status') == "False" ]]; do
-  echo "Waiting for node to be in Ready state... (${elapsed}s/${timeout}s)"
+while true; do
+  node_readiness=$(get_node_readiness)
+  if [[ "$node_readiness" == "True" ]]; then
+    break
+  fi
+
+  if [[ "$node_readiness" == "False" ]]; then
+    echo "Waiting for node to be in Ready state (KubeletReady=False)... (${elapsed}s/${timeout}s)"
+  else
+    echo "Waiting for node to be in Ready state (KubeletReady status unknown)... (${elapsed}s/${timeout}s)"
+  fi
+
   sleep 5
   elapsed=$((elapsed + 5))
-  if [ $elapsed -ge $timeout ]; then
-    echo "Timeout reached: Node not ready after ${timeout}s"
+  if [ "$elapsed" -ge "$timeout" ]; then
+    echo "Timeout reached: Node not ready after ${timeout}s (last KubeletReady status: ${node_readiness})"
     exit 1
   fi
 done
