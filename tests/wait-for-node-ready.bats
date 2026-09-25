@@ -18,16 +18,16 @@ fi
 
 case "${MOCK_OC_MODE:-true}" in
   true)
-    echo '{"items":[{"metadata":{"name":"api.crc.testing"},"status":{"conditions":[{"reason":"KubeletReady","status":"True"}]}}]}'
+    echo '{"items":[{"metadata":{"name":"crc-node"},"status":{"conditions":[{"type":"Ready","status":"True"}]}}]}'
     ;;
   false)
-    echo '{"items":[{"metadata":{"name":"api.crc.testing"},"status":{"conditions":[{"reason":"KubeletReady","status":"False"}]}}]}'
+    echo '{"items":[{"metadata":{"name":"crc-node"},"status":{"conditions":[{"type":"Ready","status":"False"}]}}]}'
     ;;
   missing-node)
     echo '{"items":[]}'
     ;;
   missing-condition)
-    echo '{"items":[{"metadata":{"name":"api.crc.testing"},"status":{"conditions":[]}}]}'
+    echo '{"items":[{"metadata":{"name":"crc-node"},"status":{"conditions":[]}}]}'
     ;;
   malformed)
     echo 'not-json'
@@ -43,9 +43,9 @@ case "${MOCK_OC_MODE:-true}" in
     count=$((count + 1))
     echo "$count" >"$MOCK_OC_COUNT_FILE"
     if [[ "$count" -eq 1 ]]; then
-      echo '{"items":[{"metadata":{"name":"api.crc.testing"},"status":{"conditions":[{"reason":"KubeletReady","status":"Unknown"}]}}]}'
+      echo '{"items":[{"metadata":{"name":"crc-node"},"status":{"conditions":[{"type":"Ready","status":"Unknown"}]}}]}'
     else
-      echo '{"items":[{"metadata":{"name":"api.crc.testing"},"status":{"conditions":[{"reason":"KubeletReady","status":"True"}]}}]}'
+      echo '{"items":[{"metadata":{"name":"crc-node"},"status":{"conditions":[{"type":"Ready","status":"True"}]}}]}'
     fi
     ;;
 esac
@@ -75,33 +75,36 @@ teardown() {
   rm -rf "$TMPDIR"
 }
 
-@test "succeeds when KubeletReady is True" {
+@test "succeeds for a differently named CRC node with Ready=True" {
   run bash "$SCRIPT"
   [ "$status" -eq 0 ]
-  [[ "$output" != *"KubeletReady status unknown"* ]]
+  [[ "$output" != *"Ready status unknown"* ]]
 }
 
-@test "waits and times out when KubeletReady is False" {
+@test "waits and times out when the node Ready condition is False" {
   export MOCK_OC_MODE=false
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "KubeletReady=False" ]]
+  [[ "$output" == *"Ready=False; nodes: crc-node (Ready=False)"* ]]
   [[ "$output" =~ "Timeout reached: Node not ready" ]]
+  [[ "$output" == *"observed nodes: crc-node (Ready=False)"* ]]
 }
 
 @test "waits and times out when the CRC node is missing" {
   export MOCK_OC_MODE=missing-node
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "api.crc.testing or its KubeletReady condition is missing" ]]
-  [[ "$output" =~ "KubeletReady status unknown" ]]
+  [[ "$output" =~ "No nodes returned by oc get nodes" ]]
+  [[ "$output" =~ "Ready status unknown; nodes: none" ]]
+  [[ "$output" =~ "observed nodes: none" ]]
 }
 
-@test "waits and times out when the KubeletReady condition is missing" {
+@test "waits and times out when the Ready condition is missing" {
   export MOCK_OC_MODE=missing-condition
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "api.crc.testing or its KubeletReady condition is missing" ]]
+  [[ "$output" == *"Ready status unknown; nodes: crc-node (Ready=unknown)"* ]]
+  [[ "$output" == *"observed nodes: crc-node (Ready=unknown)"* ]]
 }
 
 @test "waits and times out when node JSON is malformed" {
@@ -109,7 +112,7 @@ teardown() {
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "jq could not parse the node data" ]]
-  [[ "$output" =~ "KubeletReady status unknown" ]]
+  [[ "$output" =~ "Ready status unknown" ]]
 }
 
 @test "waits and times out when jq fails" {
@@ -125,12 +128,12 @@ teardown() {
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "oc get nodes failed" ]]
-  [[ "$output" =~ "KubeletReady status unknown" ]]
+  [[ "$output" =~ "Ready status unknown" ]]
 }
 
 @test "continues polling after an unknown status and succeeds on True" {
   export MOCK_OC_MODE=unknown-then-true
   run bash "$SCRIPT"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "KubeletReady status unknown" ]]
+  [[ "$output" =~ "Ready status unknown" ]]
 }

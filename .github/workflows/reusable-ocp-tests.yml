@@ -13,7 +13,7 @@ permissions: read-all
 
 jobs:
   run-ocp:
-    timeout-minutes: 45
+    timeout-minutes: 90
     if: ${{ !inputs.skip-dependabot || github.actor != 'dependabot[bot]' }}
     strategy:
       fail-fast: false

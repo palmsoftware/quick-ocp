@@ -235,6 +235,10 @@ runs:
         export PULL_SECRET="${{ inputs.ocpPullSecret }}"
         ${{ github.action_path }}/scripts/write-pull-secret.sh
         
+    - name: Start memory pressure monitor
+      shell: bash
+      run: ${{ github.action_path }}/scripts/memory-pressure-monitor.sh start
+
     - name: Start OpenShift Local
       shell: bash
       env:
@@ -348,6 +352,11 @@ runs:
       if: always()
       shell: bash
       run: ${{ github.action_path }}/scripts/stop-oom-watchdog.sh
+
+    - name: Stop memory pressure monitor
+      if: always()
+      shell: bash
+      run: ${{ github.action_path }}/scripts/memory-pressure-monitor.sh stop
 
     - name: Calculate deployment duration
       if: always()
