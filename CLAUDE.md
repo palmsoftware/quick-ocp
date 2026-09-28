@@ -31,9 +31,12 @@ make fix-lint
 
 Priority for CRC version resolution:
 
-1. Explicit `crcVersion` input
-2. Pin in `crc-version-pins.json`
-3. Auto-detection via GitHub API (`"auto"` pins)
+1. Resolve deprecated OCP version aliases from `crc-version-pins.json` (`4.19` maps to `4.20`)
+2. For non-deprecated requests, use an explicit `crcVersion` input
+3. Pin in `crc-version-pins.json`
+4. Auto-detection via GitHub API (`"auto"` pins)
+
+An explicit `crcVersion` is ignored when the requested OCP version is a deprecated alias.
 
 YAML parsers treat `4.20` as `4.2`; the action normalizes this automatically.
 
@@ -57,7 +60,7 @@ Tested on `ubuntu-22.04`, `ubuntu-24.04`, and `ubuntu-26.04`.
   with:
     ocpPullSecret: $OCP_PULL_SECRET
     bundleCache: true
-    desiredOCPVersion: "4.19"
+    desiredOCPVersion: "4.20"
   env:
     OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
 ```

@@ -60,7 +60,7 @@ steps:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `ocpPullSecret` | Pull secret for OpenShift Local | Yes | — |
-| `desiredOCPVersion` | OpenShift version to deploy (`4.18`, `4.19`, `4.20`, `4.21`, `4.22`, or `latest`) | No | `latest` |
+| `desiredOCPVersion` | OpenShift version to deploy (`4.18`, `4.20` or later, or `latest`; `4.19` is a deprecated alias for `4.20`) | No | `latest` |
 | `crcVersion` | Specific CRC version to use (overrides version detection and pinning) | No | — |
 | `bundleCache` | Cache the CRC bundles for faster startup | No | `false` |
 | `crcMemory` | Memory allocation in MB for OpenShift Local | No | `10752` |
@@ -82,7 +82,7 @@ steps:
 
 | Output | Description |
 |--------|-------------|
-| `ocp-version` | The deployed OpenShift version (e.g., `4.19.8`) |
+| `ocp-version` | The deployed OpenShift version (e.g., `4.20.0`) |
 | `crc-version` | The CRC version used (e.g., `2.54.0`) |
 | `api-url` | The OpenShift API server URL (`https://api.crc.testing:6443`) |
 | `console-url` | The OpenShift web console URL |
@@ -101,7 +101,8 @@ with:
 ```
 
 - The default is `latest`, which will use the most recent supported version. If you leave `desiredOCPVersion` blank, you will get the latest version.
-- Supported values are `4.18`, `4.19`, `4.20`, `4.21`, `4.22`, and `latest`.
+- Supported values are `4.18`, `4.20` and later, and `latest`.
+- `4.19` is deprecated and accepted as an alias for `4.20`. The action emits a GitHub Actions warning and continues with `4.20`; any `crcVersion` override supplied with `4.19` is ignored.
 
 **Note:** YAML parsers interpret `4.20` as a floating-point number and convert it to `4.2`. The action automatically normalizes this back to `4.20`, so you don't need to quote version numbers in your workflow files.
 
@@ -114,18 +115,21 @@ For more details, see [action.yml](action.yml) and the [reusable workflow exampl
 To ensure stability and avoid issues with specific CRC releases, this action uses a version pinning mechanism. The `crc-version-pins.json` file maps OCP versions to specific known-good CRC versions.
 
 **How it works:**
-1. When you specify a `desiredOCPVersion` (e.g., `4.19`), the action first checks `crc-version-pins.json`
-2. If a specific CRC version is pinned (not set to `"auto"`), that version is used
-3. If set to `"auto"`, the action queries the GitHub API for the latest CRC release supporting that OCP version
-4. Known issues with specific versions are documented in the `known_issues` section
+1. Deprecated OCP version aliases are resolved first (currently, `4.19` maps to `4.20`)
+2. The action checks `crc-version-pins.json` for the effective OCP version
+3. If a specific CRC version is pinned (not set to `"auto"`), that version is used
+4. If set to `"auto"`, the action queries the GitHub API for the latest CRC release supporting that OCP version
+5. Known issues with specific versions are documented in the `known_issues` section
 
 **Example from `crc-version-pins.json`:**
 ```json
 {
+  "deprecated_versions": {
+    "4.19": "4.20"
+  },
   "version_pins": {
     "latest": "auto",
     "4.18": "auto",
-    "4.19": "2.54.0",
     "4.20": "auto",
     "4.21": "auto",
     "4.22": "auto"
@@ -140,7 +144,7 @@ To ensure stability and avoid issues with specific CRC releases, this action use
 }
 ```
 
-**Note:** Versions set to `"auto"` (latest, 4.18, 4.20, 4.21, 4.22) automatically fetch the latest compatible CRC version from GitHub API. Only 4.19 is pinned to 2.54.0 to avoid the certificate issue in 2.55.x.
+**Note:** Versions set to `"auto"` (latest, 4.18, 4.20, 4.21, 4.22) automatically fetch the latest compatible CRC version from GitHub API. The historical 4.19 certificate issue remains documented under `known_issues` for reference.
 
 ### Explicit CRC Version Override
 
@@ -148,8 +152,8 @@ You can also explicitly specify a CRC version, which overrides both version pinn
 
 ```yaml
 with:
-  desiredOCPVersion: 4.19
-  crcVersion: 2.54.0
+  desiredOCPVersion: 4.20
+  crcVersion: '<compatible CRC version>'
 ```
 
 This is useful for:
@@ -157,8 +161,10 @@ This is useful for:
 - Working around newly discovered issues before pins are updated
 - Ensuring reproducibility in CI/CD pipelines
 
+For deprecated `desiredOCPVersion: 4.19`, the action maps the request to `4.20` and ignores `crcVersion` so it cannot select a 4.19 bundle.
+
 **Priority order:**
-1. Explicit `crcVersion` input (highest priority)
+1. Explicit `crcVersion` input (highest priority, except for deprecated aliases)
 2. Pinned version in `crc-version-pins.json`
 3. Automatic detection via GitHub API (lowest priority)
 

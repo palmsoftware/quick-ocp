@@ -108,31 +108,22 @@ runs:
       shell: bash
       run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
 
+    - name: Resolve and validate desiredOCPVersion
+      id: resolve_ocp_version
+      shell: bash
+      env:
+        DESIRED_OCP_VERSION: ${{ inputs.desiredOCPVersion }}
+        CRC_VERSION_OVERRIDE: ${{ inputs.crcVersion }}
+      run: ${{ github.action_path }}/scripts/resolve-ocp-version.sh "$DESIRED_OCP_VERSION" "${{ github.action_path }}"
+
     - name: Precheck runner resources
       if: ${{ inputs.disableResourcePrecheck != 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/precheck-resources.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.enableClusterMonitoring }}"
 
-    - name: Validate desiredOCPVersion input
-      shell: bash
-      run: |
-        VERSION="${{ inputs.desiredOCPVersion }}"
-        # Normalize YAML float parsing (4.2 -> 4.20)
-        if [[ "$VERSION" =~ ^4\.([0-9]+)$ ]]; then
-          MINOR="${BASH_REMATCH[1]}"
-          if [ ${#MINOR} -eq 1 ] && [ "$MINOR" -ge 2 ]; then
-            VERSION="4.${MINOR}0"
-          fi
-        fi
-        if [ "$VERSION" != "latest" ] && [[ ! "$VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
-          echo "::error::Invalid desiredOCPVersion: '${{ inputs.desiredOCPVersion }}'. Supported values are 4.18 and above, or 'latest'." >&2
-          echo "[ERROR] Invalid desiredOCPVersion: '${{ inputs.desiredOCPVersion }}'. Supported values are 4.18 and above, or 'latest'." >&2
-          exit 1
-        fi
-
     - name: Validate runner compatibility
       shell: bash
-      run: ${{ github.action_path }}/scripts/validate-runner.sh "${{ inputs.desiredOCPVersion }}"
+      run: ${{ github.action_path }}/scripts/validate-runner.sh "${{ steps.resolve_ocp_version.outputs.effective_version }}"
 
     - name: Warn when bundleCache is disabled
       if: ${{ inputs.bundleCache != 'true' }}
@@ -149,7 +140,7 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
-      run: ${{ github.action_path }}/scripts/set-crc-version.sh "${{ inputs.desiredOCPVersion }}" "${{ github.action_path }}" "${{ inputs.crcVersion }}"
+      run: ${{ github.action_path }}/scripts/set-crc-version.sh "${{ steps.resolve_ocp_version.outputs.effective_version }}" "${{ github.action_path }}" "${{ steps.resolve_ocp_version.outputs.crc_version_override }}"
 
     - name: Download and Install OpenShift Local Binary
       shell: bash
@@ -262,7 +253,7 @@ runs:
       if: steps.crc-setup.outcome == 'failure'
       shell: bash
       env:
-        OCP_VERSION: ${{ inputs.desiredOCPVersion }}
+        OCP_VERSION: ${{ steps.resolve_ocp_version.outputs.effective_version }}
       run: ${{ github.action_path }}/scripts/pull-bundle-from-image-cache.sh
 
     - name: Retry setup after bundle recovery

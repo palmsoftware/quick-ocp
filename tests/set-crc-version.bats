@@ -21,25 +21,18 @@ teardown() {
   rm -rf "$TMPDIR"
 }
 
-@test "normalizes YAML float 4.2 to 4.20" {
-  run bash "$SCRIPT" "4.2" "$REPO_ROOT" "2.54.0"
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Normalized version from 4.2 to 4.20" ]]
-  grep -q "crc_version=2.54.0" "$GITHUB_OUTPUT"
-}
-
-@test "does not normalize 4.18 (already two digits)" {
+@test "passes through OCP 4.18 for CRC selection" {
   run bash "$SCRIPT" "4.18" "$REPO_ROOT" "2.54.0"
   [ "$status" -eq 0 ]
-  [[ ! "$output" =~ "Normalized" ]]
+  [[ "$output" =~ "Desired OCP Version: 4.18" ]]
   grep -q "crc_version=2.54.0" "$GITHUB_OUTPUT"
 }
 
 @test "explicit CRC version bypasses version detection" {
-  run bash "$SCRIPT" "4.19" "$REPO_ROOT" "2.54.0"
+  run bash "$SCRIPT" "4.20" "$REPO_ROOT" "2.99.0"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "explicitly specified CRC version: 2.54.0" ]]
-  grep -q "crc_version=2.54.0" "$GITHUB_OUTPUT"
+  [[ "$output" =~ "explicitly specified CRC version: 2.99.0" ]]
+  grep -q "crc_version=2.99.0" "$GITHUB_OUTPUT"
 }
 
 @test "latest OCP version sets crc_version=latest without pins" {
@@ -64,13 +57,13 @@ teardown() {
 }
 
 @test "allows working explicit CRC version (2.54.0)" {
-  run bash "$SCRIPT" "4.19" "$REPO_ROOT" "2.54.0"
+  run bash "$SCRIPT" "4.20" "$REPO_ROOT" "2.54.0"
   [ "$status" -eq 0 ]
   grep -q "crc_version=2.54.0" "$GITHUB_OUTPUT"
 }
 
 @test "allows explicit CRC version when pins file is missing" {
-  run bash "$SCRIPT" "4.19" "$TMPDIR" "2.55.0"
+  run bash "$SCRIPT" "4.20" "$TMPDIR" "2.55.0"
   [ "$status" -eq 0 ]
   grep -q "crc_version=2.55.0" "$GITHUB_OUTPUT"
 }
