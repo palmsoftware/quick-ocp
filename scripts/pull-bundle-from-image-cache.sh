@@ -10,11 +10,6 @@ if [ -z "$OCP_VERSION" ]; then
   exit 1
 fi
 
-# Normalize YAML float issue (e.g. 4.2 -> 4.20)
-if [[ "$OCP_VERSION" =~ ^4\.([2-9])$ ]]; then
-  OCP_VERSION="4.${BASH_REMATCH[1]}0"
-fi
-
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 CACHE_DIR="$HOME/.crc/cache"
 IMAGE_TAG="${IMAGE_REGISTRY}/${IMAGE_NAME}:${OCP_VERSION}"

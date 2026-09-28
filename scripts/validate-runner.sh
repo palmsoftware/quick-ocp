@@ -20,15 +20,6 @@ case "$UBUNTU_VERSION" in
     ;;
 esac
 
-# Normalize YAML float parsing (4.2 -> 4.20)
-if [[ "$DESIRED_OCP_VERSION" =~ ^4\.([0-9]+)$ ]]; then
-  MINOR_VERSION="${BASH_REMATCH[1]}"
-  if [ ${#MINOR_VERSION} -eq 1 ] && [ "$MINOR_VERSION" -ge 2 ]; then
-    DESIRED_OCP_VERSION="4.${MINOR_VERSION}0"
-    echo "Normalized version from 4.$MINOR_VERSION to $DESIRED_OCP_VERSION (YAML float parsing fix)"
-  fi
-fi
-
 if [ "$UBUNTU_VERSION" = "26.04" ] && [ "$DESIRED_OCP_VERSION" != "latest" ]; then
   if [[ "$DESIRED_OCP_VERSION" =~ ^4\.([0-9]+)$ ]]; then
     MINOR="${BASH_REMATCH[1]}"

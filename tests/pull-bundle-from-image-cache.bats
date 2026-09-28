@@ -13,9 +13,9 @@ teardown() {
 }
 
 @test "recognizes an existing bundle through the CRC cache symlink" {
-  touch "$TEST_ROOT/crc-cache/crc_libvirt_4.19.8_amd64.crcbundle"
+  touch "$TEST_ROOT/crc-cache/crc_libvirt_4.20.8_amd64.crcbundle"
 
-  run env HOME="$TEST_ROOT/home" OCP_VERSION=4.19 bash "$SCRIPT"
+  run env HOME="$TEST_ROOT/home" OCP_VERSION=4.20 bash "$SCRIPT"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Bundle already present"* ]]
@@ -24,8 +24,8 @@ teardown() {
 
 @test "finds a bundle extracted through the CRC cache symlink" {
   mkdir "$TEST_ROOT/mock-bin"
-  printf 'bundle payload' > "$TEST_ROOT/crc_libvirt_4.19.8_amd64.crcbundle"
-  tar -cf "$TEST_ROOT/bundle.tar" -C "$TEST_ROOT" crc_libvirt_4.19.8_amd64.crcbundle
+  printf 'bundle payload' > "$TEST_ROOT/crc_libvirt_4.20.8_amd64.crcbundle"
+  tar -cf "$TEST_ROOT/bundle.tar" -C "$TEST_ROOT" crc_libvirt_4.20.8_amd64.crcbundle
 
   cat > "$TEST_ROOT/mock-bin/docker" <<'EOF'
 #!/bin/bash
@@ -42,7 +42,7 @@ printf '1024\t%s\n' "$2"
 EOF
   chmod +x "$TEST_ROOT/mock-bin/docker" "$TEST_ROOT/mock-bin/du"
 
-  run env HOME="$TEST_ROOT/home" OCP_VERSION=4.19 TEST_ROOT="$TEST_ROOT" PATH="$TEST_ROOT/mock-bin:$PATH" bash "$SCRIPT"
+  run env HOME="$TEST_ROOT/home" OCP_VERSION=4.20 TEST_ROOT="$TEST_ROOT" PATH="$TEST_ROOT/mock-bin:$PATH" bash "$SCRIPT"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Bundle extracted successfully"* ]]

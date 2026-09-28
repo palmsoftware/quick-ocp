@@ -1,10 +1,12 @@
 {
   "_comment": "This file pins specific CRC versions for OCP minor versions to avoid known issues",
-  "_documentation": "Format: 'OCP_VERSION': 'CRC_VERSION'. Use 'auto' to fetch latest from GitHub API. 'latest' key controls what happens when user specifies 'latest' as desiredOCPVersion.",
+  "_documentation": "Format: 'OCP_VERSION': 'CRC_VERSION'. Use 'auto' to fetch latest from GitHub API. 'latest' controls requests for latest. 'deprecated_versions' maps deprecated desiredOCPVersion aliases to current versions.",
+  "deprecated_versions": {
+    "4.19": "4.20"
+  },
   "version_pins": {
     "latest": "auto",
     "4.18": "auto",
-    "4.19": "2.54.0",
     "4.20": "auto",
     "4.21": "auto",
     "4.22": "auto"
@@ -19,4 +21,3 @@
     }
   }
 }
-

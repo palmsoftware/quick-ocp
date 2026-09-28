@@ -20,7 +20,7 @@ teardown() {
 
 @test "passes on supported Ubuntu 22.04" {
   export MOCK_UBUNTU_VERSION=22.04
-  run bash "$SCRIPT" "4.19"
+  run bash "$SCRIPT" "4.20"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Runner compatibility check passed" ]]
 }
@@ -45,15 +45,15 @@ teardown() {
 
 @test "rejects unsupported Ubuntu 20.04" {
   export MOCK_UBUNTU_VERSION=20.04
-  run bash "$SCRIPT" "4.19"
+  run bash "$SCRIPT" "4.20"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "Ubuntu 20.04 is not supported" ]]
 }
 
-@test "rejects Ubuntu 26.04 with OCP 4.19" {
+@test "rejects Ubuntu 26.04 with OCP 4.20" {
   export MOCK_UBUNTU_VERSION=26.04
-  run bash "$SCRIPT" "4.19"
+  run bash "$SCRIPT" "4.20"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "::error::" ]]
   [[ "$output" =~ "not supported on ubuntu-26.04" ]]
@@ -63,13 +63,5 @@ teardown() {
   export MOCK_UBUNTU_VERSION=26.04
   run bash "$SCRIPT" "4.21"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "not supported on ubuntu-26.04" ]]
-}
-
-@test "normalizes YAML float 4.2 on Ubuntu 26.04 and rejects as OCP 4.20" {
-  export MOCK_UBUNTU_VERSION=26.04
-  run bash "$SCRIPT" "4.2"
-  [ "$status" -eq 1 ]
-  [[ "$output" =~ "Normalized version from 4.2 to 4.20" ]]
   [[ "$output" =~ "not supported on ubuntu-26.04" ]]
 }
