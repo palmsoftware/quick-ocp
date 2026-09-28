@@ -19,8 +19,12 @@ ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 CACHE_DIR="$HOME/.crc/cache"
 IMAGE_TAG="${IMAGE_REGISTRY}/${IMAGE_NAME}:${OCP_VERSION}"
 
+find_bundle() {
+  find -L "${CACHE_DIR}" -maxdepth 1 -name "*.crcbundle" -print -quit 2>/dev/null || true
+}
+
 echo "=== Checking for existing bundle in ${CACHE_DIR} ==="
-if find "${CACHE_DIR}" -maxdepth 1 -name "*.crcbundle" 2>/dev/null | head -1 | grep -q .; then
+if [ -n "$(find_bundle)" ]; then
   echo "Bundle already present in ${CACHE_DIR} — setup failure was not due to missing bundle"
   echo "Allowing retry of CRC setup and start"
   exit 0
@@ -46,7 +50,7 @@ docker cp "${CONTAINER_ID}:/cache/bundle.tar" /tmp/bundle.tar
 tar -xf /tmp/bundle.tar -C "${CACHE_DIR}/"
 rm /tmp/bundle.tar
 
-BUNDLE_FILE=$(find "${CACHE_DIR}" -maxdepth 1 -name "*.crcbundle" 2>/dev/null | head -1)
+BUNDLE_FILE=$(find_bundle)
 if [ -z "${BUNDLE_FILE}" ]; then
   echo "::error::Bundle extraction from Quay image failed — no .crcbundle found in ${CACHE_DIR}"
   exit 1

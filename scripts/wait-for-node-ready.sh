@@ -37,55 +37,76 @@ while ! oc get nodes --request-timeout='30s' &>/dev/null; do
   fi
 done
 
-# Return the CRC node's KubeletReady status as True, False, or unknown.
+# Require every returned CRC node to report Ready=True.
 get_node_readiness() {
-  local nodes_json readiness
+  local nodes_json node_rows node_name readiness
+  local saw_false=false saw_unknown=false node_count=0
 
   if ! nodes_json=$(oc get nodes --request-timeout='30s' -o json); then
     echo "Unable to query node readiness: oc get nodes failed; treating the node as not ready." >&2
-    echo "unknown"
+    node_readiness="unknown"
+    observed_nodes="unavailable"
     return 0
   fi
 
-  if ! readiness=$(jq -r '.items[] | select(.metadata.name=="api.crc.testing") | .status.conditions[] | select(.reason=="KubeletReady") | .status' <<<"$nodes_json"); then
+  if ! node_rows=$(jq -r '.items[] | [(.metadata.name // "<unknown>"), ([.status.conditions[]? | select(.type == "Ready") | .status] | if length == 1 then .[0] // "unknown" else "unknown" end)] | @tsv' <<<"$nodes_json"); then
     echo "Unable to query node readiness: jq could not parse the node data; treating the node as not ready." >&2
-    echo "unknown"
+    node_readiness="unknown"
+    observed_nodes="unavailable"
     return 0
   fi
 
-  case "$readiness" in
-    True | False)
-      echo "$readiness"
-      ;;
-    "")
-      echo "Node api.crc.testing or its KubeletReady condition is missing; treating the node as not ready." >&2
-      echo "unknown"
-      ;;
-    *)
-      echo "Node api.crc.testing returned unexpected KubeletReady status '$readiness'; treating the node as not ready." >&2
-      echo "unknown"
-      ;;
-  esac
+  node_readiness="True"
+  observed_nodes=""
+  while IFS=$'\t' read -r node_name readiness; do
+    [[ -n "$node_name" ]] || continue
+    node_count=$((node_count + 1))
+    if [[ -n "$observed_nodes" ]]; then
+      observed_nodes+=", "
+    fi
+    observed_nodes+="${node_name} (Ready=${readiness})"
+
+    case "$readiness" in
+      True)
+        ;;
+      False)
+        saw_false=true
+        ;;
+      *)
+        saw_unknown=true
+        ;;
+    esac
+  done <<<"$node_rows"
+
+  if [[ "$node_count" -eq 0 ]]; then
+    node_readiness="unknown"
+    observed_nodes="none"
+    echo "No nodes returned by oc get nodes; treating the node as not ready." >&2
+  elif [[ "$saw_false" == true ]]; then
+    node_readiness="False"
+  elif [[ "$saw_unknown" == true ]]; then
+    node_readiness="unknown"
+  fi
 }
 
 # Wait for the node to be in Ready state
 elapsed=0
 while true; do
-  node_readiness=$(get_node_readiness)
+  get_node_readiness
   if [[ "$node_readiness" == "True" ]]; then
     break
   fi
 
   if [[ "$node_readiness" == "False" ]]; then
-    echo "Waiting for node to be in Ready state (KubeletReady=False)... (${elapsed}s/${timeout}s)"
+    echo "Waiting for node to be in Ready state (Ready=False; nodes: ${observed_nodes})... (${elapsed}s/${timeout}s)"
   else
-    echo "Waiting for node to be in Ready state (KubeletReady status unknown)... (${elapsed}s/${timeout}s)"
+    echo "Waiting for node to be in Ready state (Ready status unknown; nodes: ${observed_nodes})... (${elapsed}s/${timeout}s)"
   fi
 
   sleep 5
   elapsed=$((elapsed + 5))
   if [ "$elapsed" -ge "$timeout" ]; then
-    echo "Timeout reached: Node not ready after ${timeout}s (last KubeletReady status: ${node_readiness})"
+    echo "Timeout reached: Node not ready after ${timeout}s (last Ready status: ${node_readiness}; observed nodes: ${observed_nodes})"
     exit 1
   fi
 done
