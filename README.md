@@ -79,6 +79,8 @@ steps:
 | `proxyCaFile` | Path to a CA certificate file for the proxy | No | — |
 | `preloadImages` | Newline-separated list of container images to preload into the cluster registry | No | — |
 
+Boolean inputs (`bundleCache`, `waitForOperatorsReady`, `enableTelemetry`, `disableConnectivityCheck`, `disableResourcePrecheck`, and `enableClusterMonitoring`) accept exactly lowercase `true` or `false`. Other values, including an explicitly empty value, fail before setup begins.
+
 ## Outputs
 
 | Output | Description |

@@ -108,6 +108,17 @@ runs:
       shell: bash
       run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
 
+    - name: Validate boolean inputs
+      shell: bash
+      env:
+        BUNDLE_CACHE: ${{ inputs.bundleCache }}
+        WAIT_FOR_OPERATORS_READY: ${{ inputs.waitForOperatorsReady }}
+        ENABLE_TELEMETRY: ${{ inputs.enableTelemetry }}
+        DISABLE_CONNECTIVITY_CHECK: ${{ inputs.disableConnectivityCheck }}
+        DISABLE_RESOURCE_PRECHECK: ${{ inputs.disableResourcePrecheck }}
+        ENABLE_CLUSTER_MONITORING: ${{ inputs.enableClusterMonitoring }}
+      run: ${{ github.action_path }}/scripts/validate-boolean-inputs.sh
+
     - name: Resolve and validate desiredOCPVersion
       id: resolve_ocp_version
       shell: bash
