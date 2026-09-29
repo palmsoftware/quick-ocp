@@ -1,7 +1,7 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-IMAGE_LIST="$1"
+IMAGE_LIST="${1:-}"
 
 if [ -z "$IMAGE_LIST" ]; then
   echo "No images to preload"
@@ -37,11 +37,19 @@ echo "Registry hostname: $REGISTRY"
 # Get the kubeadmin token
 TOKEN=$(oc whoami -t)
 
-# Login to the registry with podman
+# Use an action-scoped auth file instead of the runner's persistent Docker config.
+AUTH_BASE="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+umask 077
+AUTHFILE=$(mktemp "$AUTH_BASE/quick-ocp-registry-auth.XXXXXX")
+chmod 600 "$AUTHFILE"
+trap 'rm -f "$AUTHFILE"' EXIT
+
+# Login to the registry without exposing the token in process arguments.
 echo "Logging into cluster registry..."
-podman login "$REGISTRY" \
+printf '%s\n' "$TOKEN" | podman login "$REGISTRY" \
+  --compat-auth-file "$AUTHFILE" \
   --username kubeadmin \
-  --password "$TOKEN" \
+  --password-stdin \
   --tls-verify=false
 
 # Parse and mirror each image
@@ -66,6 +74,7 @@ while IFS= read -r IMAGE; do
   mirror_output=$(oc image mirror \
     "$IMAGE" \
     "$REGISTRY/openshift/$IMAGE_NAME" \
+    --registry-config "$AUTHFILE" \
     --insecure=true \
     --keep-manifest-list=true 2>&1) && mirror_rc=0 || mirror_rc=$?
 
