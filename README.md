@@ -16,13 +16,14 @@ If you are looking to quickly spawn Kubernetes in your Action runner, try [quick
 
 This action is tested on the following GitHub Actions runners:
 
-- `ubuntu-26.04` (OCP `4.22` and `latest` only — older OCP versions fail SSH during CRC start; libvirt AppArmor is disabled automatically to allow CRC start with split OVMF packages)
+- `ubuntu-26.04` (OCP `4.22` and `latest` only — older OCP versions fail SSH during CRC start; GitHub-hosted runners temporarily use the libvirt security workaround for split OVMF packages, then restore their original configuration)
 - `ubuntu-24.04`
 - `ubuntu-22.04`
 
 # Known Limitations
 
 - `ubuntu-20.04` is not supported due to the version of `libvirt` available in the mirrors not meeting the minimum version required by OpenShift Local.
+- On self-hosted Ubuntu `26.04`, the action fails before changing libvirt security settings. The workaround changes host-wide libvirt configuration, so self-hosted users must configure OVMF/AppArmor compatibility themselves after reviewing their host security policy.
 
 # Connectivity Requirements
 
