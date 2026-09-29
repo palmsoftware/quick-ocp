@@ -1,7 +1,11 @@
 #!/bin/bash
 set -eo pipefail
 
-trap 'rm -f pull-secret.json' EXIT
+PULL_SECRET_FILE="${PULL_SECRET_FILE:-pull-secret.json}"
+if [[ ! -f "$PULL_SECRET_FILE" ]]; then
+  echo "Pull secret file not found: $PULL_SECRET_FILE" >&2
+  exit 1
+fi
 
 echo "=== CRC preflight check ==="
 sudo -su "$USER" crc setup --check-only 2>&1 || true
@@ -21,7 +25,7 @@ while [ $attempt -le $max_attempts ]; do
 
   start_exit_code=0
   start_log="/tmp/crc-start-attempt-${attempt}.log"
-  sudo -su "$USER" crc start --pull-secret-file pull-secret.json --log-level debug 2>&1 | tee "$start_log" || start_exit_code=$?
+  sudo -su "$USER" crc start --pull-secret-file "$PULL_SECRET_FILE" --log-level debug 2>&1 | tee "$start_log" || start_exit_code=$?
   if [ $start_exit_code -eq 0 ]; then
     break
   fi

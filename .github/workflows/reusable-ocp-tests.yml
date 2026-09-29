@@ -52,7 +52,7 @@ jobs:
       - name: Run the action
         uses: ./
         with:
-          ocpPullSecret: $OCP_PULL_SECRET
+          ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
           bundleCache: true
           desiredOCPVersion: ${{ matrix.ocp }}
         env:
@@ -78,7 +78,7 @@ jobs:
       - name: Deploy OCP with cluster monitoring enabled
         uses: ./
         with:
-          ocpPullSecret: $OCP_PULL_SECRET
+          ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
           bundleCache: true
           desiredOCPVersion: 'latest'
           crcMemory: '14336'
@@ -109,7 +109,7 @@ jobs:
       - name: Deploy OCP with preloaded images
         uses: ./
         with:
-          ocpPullSecret: $OCP_PULL_SECRET
+          ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
           bundleCache: true
           desiredOCPVersion: 'latest'
           preloadImages: |
