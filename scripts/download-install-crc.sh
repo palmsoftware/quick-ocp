@@ -24,37 +24,47 @@ DOWNLOAD_SUCCESS=false
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES: Downloading CRC version $CRC_VERSION..."
+  EXPECTED=""
+  ACTUAL=""
 
   # Remove any partial download from previous attempt
   rm -f "$CRC_TMPDIR/crc.tar.xz"
+  rm -f "$CRC_TMPDIR/sha256sum.txt"
 
   MIRROR_BASE="https://mirror.openshift.com/pub/openshift-v4/clients/crc/$CRC_VERSION"
   CRC_FILENAME="crc-linux-$CRC_ARCH.tar.xz"
   echo "Download URL: $MIRROR_BASE/$CRC_FILENAME"
 
-  if curl -L -o "$CRC_TMPDIR/crc.tar.xz" "$MIRROR_BASE/$CRC_FILENAME"; then
+  if curl -fL -o "$CRC_TMPDIR/crc.tar.xz" "$MIRROR_BASE/$CRC_FILENAME"; then
     FILE_SIZE=$(stat -c%s "$CRC_TMPDIR/crc.tar.xz" 2>/dev/null || stat -f%z "$CRC_TMPDIR/crc.tar.xz" 2>/dev/null || echo 0)
     if [ "$FILE_SIZE" -le 1048576 ]; then
       echo "Download failed: File too small ($FILE_SIZE bytes), likely an error page"
-    elif curl -sL -o "$CRC_TMPDIR/sha256sum.txt" "$MIRROR_BASE/sha256sum.txt"; then
-      EXPECTED=$(grep "$CRC_FILENAME" "$CRC_TMPDIR/sha256sum.txt" | awk '{print $1}')
-      if [ -z "$EXPECTED" ]; then
-        echo "WARNING: No checksum found for $CRC_FILENAME in sha256sum.txt, skipping verification"
-        DOWNLOAD_SUCCESS=true
-        break
+    elif curl -fsSL -o "$CRC_TMPDIR/sha256sum.txt" "$MIRROR_BASE/sha256sum.txt"; then
+      CHECKSUM_MATCHES=()
+      while IFS= read -r checksum; do
+        CHECKSUM_MATCHES+=("$checksum")
+      done < <(awk -v filename="$CRC_FILENAME" '$2 == filename || $2 == "*" filename {print $1}' "$CRC_TMPDIR/sha256sum.txt")
+
+      if [[ ${#CHECKSUM_MATCHES[@]} -eq 0 ]]; then
+        echo "ERROR: No checksum found for $CRC_FILENAME in sha256sum.txt"
+      elif [[ ${#CHECKSUM_MATCHES[@]} -ne 1 ]]; then
+        echo "ERROR: Multiple checksums found for $CRC_FILENAME in sha256sum.txt"
+      elif [[ ! "${CHECKSUM_MATCHES[0]}" =~ ^[[:xdigit:]]{64}$ ]]; then
+        echo "ERROR: Invalid SHA256 checksum for $CRC_FILENAME in sha256sum.txt"
+      else
+        EXPECTED=$(printf '%s' "${CHECKSUM_MATCHES[0]}" | tr '[:upper:]' '[:lower:]')
+        ACTUAL=$(sha256sum "$CRC_TMPDIR/crc.tar.xz" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
       fi
-      ACTUAL=$(sha256sum "$CRC_TMPDIR/crc.tar.xz" | awk '{print $1}')
-      if [ "$EXPECTED" = "$ACTUAL" ]; then
+
+      if [[ -n "${EXPECTED:-}" && "$EXPECTED" == "$ACTUAL" ]]; then
         echo "Download successful. File size: $FILE_SIZE bytes, SHA256 verified"
         DOWNLOAD_SUCCESS=true
         break
-      else
+      elif [[ -n "${EXPECTED:-}" ]]; then
         echo "SHA256 mismatch: expected $EXPECTED, got $ACTUAL"
       fi
     else
-      echo "WARNING: Could not download sha256sum.txt, skipping verification"
-      DOWNLOAD_SUCCESS=true
-      break
+      echo "ERROR: Could not download sha256sum.txt; checksum verification is required"
     fi
   else
     echo "Download failed with curl error"
