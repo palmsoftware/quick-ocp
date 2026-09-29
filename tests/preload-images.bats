@@ -36,6 +36,8 @@ case "$command_name" in
     password=$(cat)
     [[ "$password" == "$TEST_TOKEN" ]] || exit 1
     [[ "$saw_password_stdin" == true ]] || exit 1
+    [[ -f "$authfile" ]] || exit 1
+    [[ "$(cat "$authfile")" == '{"auths":{}}' ]] || exit 1
     printf '%s\n' "$authfile" >"$TEST_AUTHFILE_PATH"
     printf '%s\n' 'temporary auth data' >"$authfile"
     printf '%s\n' "$original_args" >"$TEST_PODMAN_ARGS"

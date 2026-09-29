@@ -41,6 +41,7 @@ TOKEN=$(oc whoami -t)
 AUTH_BASE="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 umask 077
 AUTHFILE=$(mktemp "$AUTH_BASE/quick-ocp-registry-auth.XXXXXX")
+printf '%s\n' '{"auths":{}}' >"$AUTHFILE"
 chmod 600 "$AUTHFILE"
 trap 'rm -f "$AUTHFILE"' EXIT
 
