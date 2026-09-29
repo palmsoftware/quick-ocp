@@ -75,10 +75,18 @@ TEMP_CONFIG="${CONFIG_FILE}.quick-ocp-${MARKER_TOKEN}"
 sudo rm -f "$TEMP_CONFIG"
 
 if [[ "$CONFIG_APPLIED" == true && "$CONFIG_RESTORED" != true ]]; then
-  MARKER_COUNT=0
-  if [[ -f "$CONFIG_FILE" ]]; then
-    MARKER_COUNT=$(grep -Fxc "$MARKER_LINE" "$CONFIG_FILE" || true)
+  if [[ -L "$CONFIG_FILE" || (-e "$CONFIG_FILE" && ! -f "$CONFIG_FILE") ]]; then
+    echo "Refusing to restore non-regular libvirt configuration: $CONFIG_FILE" >&2
+    exit 1
   fi
+
+  : >"$STATE_DIR/config.current"
+  if [[ -f "$CONFIG_FILE" ]]; then
+    sudo cat "$CONFIG_FILE" | tee "$STATE_DIR/config.current" >/dev/null
+  fi
+
+  MARKER_COUNT=0
+  MARKER_COUNT=$(grep -Fxc "$MARKER_LINE" "$STATE_DIR/config.current" || true)
 
   if ((MARKER_COUNT > 1)); then
     echo "Multiple temporary libvirt security markers found; retaining state in $STATE_DIR" >&2
@@ -103,7 +111,7 @@ if [[ "$CONFIG_APPLIED" == true && "$CONFIG_RESTORED" != true ]]; then
         next
       }
       { print }
-    ' "$CONFIG_FILE" >"$STATE_DIR/config.restored"; then
+    ' "$STATE_DIR/config.current" >"$STATE_DIR/config.restored"; then
       echo "Unable to prepare the restored libvirt configuration; retaining state in $STATE_DIR" >&2
       exit 1
     fi

@@ -26,7 +26,7 @@ fi
 
 ACTIVE_SETTING_COUNT=0
 if [[ -f "$CONFIG_FILE" ]]; then
-  ACTIVE_SETTING_COUNT=$(grep -Ec '^[[:space:]]*security_driver[[:space:]]*=' "$CONFIG_FILE" || true)
+  ACTIVE_SETTING_COUNT=$(sudo grep -Ec '^[[:space:]]*security_driver[[:space:]]*=' "$CONFIG_FILE" || true)
 fi
 if ((ACTIVE_SETTING_COUNT > 1)); then
   echo "::error::Multiple active security_driver settings found in $CONFIG_FILE; refusing to change an ambiguous configuration"
@@ -44,6 +44,7 @@ CONFIG_OWNER=0
 CONFIG_GROUP=0
 if [[ -f "$CONFIG_FILE" ]]; then
   CONFIG_EXISTS=true
+  sudo cat "$CONFIG_FILE" | tee "$STATE_DIR/config.original" >/dev/null
   if stat -c '%a' "$CONFIG_FILE" >/dev/null 2>&1; then
     CONFIG_MODE=$(stat -c '%a' "$CONFIG_FILE")
     CONFIG_OWNER=$(stat -c '%u' "$CONFIG_FILE")
@@ -53,8 +54,9 @@ if [[ -f "$CONFIG_FILE" ]]; then
     CONFIG_OWNER=$(stat -f '%u' "$CONFIG_FILE")
     CONFIG_GROUP=$(stat -f '%g' "$CONFIG_FILE")
   fi
-  grep -E '^[[:space:]]*security_driver[[:space:]]*=' "$CONFIG_FILE" >"$STATE_DIR/original-setting" || true
+  grep -E '^[[:space:]]*security_driver[[:space:]]*=' "$STATE_DIR/config.original" >"$STATE_DIR/original-setting" || true
 else
+  : >"$STATE_DIR/config.original"
   : >"$STATE_DIR/original-setting"
 fi
 
@@ -106,10 +108,7 @@ printf '%s\n' false >"$STATE_DIR/config-restored"
 printf '%s\n' false >"$STATE_DIR/service-restored"
 printf 'LIBVIRT_SECURITY_STATE_DIR=%s\n' "$STATE_DIR" >>"$GITHUB_ENV"
 
-CONFIG_INPUT=/dev/null
-if [[ "$CONFIG_EXISTS" == true ]]; then
-  CONFIG_INPUT=$CONFIG_FILE
-fi
+CONFIG_INPUT="$STATE_DIR/config.original"
 
 awk -v marker="$MARKER_LINE" '
   BEGIN { replacement = "security_driver = \"none\"" }
