@@ -354,6 +354,11 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/memory-pressure-monitor.sh stop
 
+    - name: Restore libvirt security configuration
+      if: always()
+      shell: bash
+      run: ${{ github.action_path }}/scripts/restore-libvirt-security.sh
+
     - name: Calculate deployment duration
       if: always()
       id: deployment_duration
