@@ -220,12 +220,13 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/create-docker-daemon-json.sh
 
-    - name: Write the pull secret to json file
+    - name: Write the pull secret to a private temp file
+      id: write_pull_secret
       shell: bash
-      run: |
-        export PULL_SECRET="${{ inputs.ocpPullSecret }}"
-        ${{ github.action_path }}/scripts/write-pull-secret.sh
-        
+      env:
+        PULL_SECRET: ${{ inputs.ocpPullSecret }}
+      run: ${{ github.action_path }}/scripts/write-pull-secret.sh
+
     - name: Start memory pressure monitor
       shell: bash
       run: ${{ github.action_path }}/scripts/memory-pressure-monitor.sh start
@@ -243,6 +244,8 @@ runs:
       id: crc-setup
       continue-on-error: true
       shell: bash
+      env:
+        PULL_SECRET_FILE: ${{ steps.write_pull_secret.outputs.path }}
       run: |
         echo "::group::CRC Setup and Start"
         ${{ github.action_path }}/scripts/run-crc-setup.sh
@@ -259,6 +262,8 @@ runs:
     - name: Retry setup after bundle recovery
       if: steps.bundle-fallback.outcome == 'success'
       shell: bash
+      env:
+        PULL_SECRET_FILE: ${{ steps.write_pull_secret.outputs.path }}
       run: |
         echo "::group::CRC Setup and Start (retry after bundle recovery)"
         ${{ github.action_path }}/scripts/run-crc-setup.sh
@@ -359,3 +364,8 @@ runs:
         DURATION=$(( $(date +%s) - START_TIME ))
         echo "duration=$DURATION" >>"${GITHUB_OUTPUT}"
         echo "=== Deployment completed in ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s) ==="
+
+    - name: Remove temporary pull secret
+      if: always()
+      shell: bash
+      run: ${{ github.action_path }}/scripts/cleanup-pull-secret.sh
