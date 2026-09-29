@@ -89,7 +89,11 @@ teardown() {
 @test "does not signal a process without the watchdog ownership marker" {
   state_dir=$(mktemp -d "$RUNNER_TEMP/crc-oom-watchdog.XXXXXX")
   chmod 700 "$state_dir"
-  start_time=$(ps -o lstart= -p "$BASHPID" | tr -d '[:space:]')
+  if [[ -r "/proc/$BASHPID/stat" ]]; then
+    start_time=$(sed 's/^.*) //' "/proc/$BASHPID/stat" | awk '{print $20}')
+  else
+    start_time=$(ps -o lstart= -p "$BASHPID" | tr -d '[:space:]')
+  fi
   printf '%s\n' "$BASHPID" "$start_time" 0123456789abcdef0123456789abcdef >"$state_dir/watchdog"
 
   run env CRC_OOM_WATCHDOG_STATE_DIR="$state_dir" bash "$STOP_SCRIPT"
