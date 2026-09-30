@@ -8,6 +8,8 @@ INPUTS=(
   disableConnectivityCheck:DISABLE_CONNECTIVITY_CHECK
   disableResourcePrecheck:DISABLE_RESOURCE_PRECHECK
   enableClusterMonitoring:ENABLE_CLUSTER_MONITORING
+  installTLSComplianceOperator:INSTALL_TLS_COMPLIANCE_OPERATOR
+  installImageCertInfoOperator:INSTALL_IMAGE_CERT_INFO_OPERATOR
 )
 
 check_input() {
@@ -21,6 +23,8 @@ check_input() {
     DISABLE_CONNECTIVITY_CHECK=false \
     DISABLE_RESOURCE_PRECHECK=false \
     ENABLE_CLUSTER_MONITORING=false \
+    INSTALL_TLS_COMPLIANCE_OPERATOR=false \
+    INSTALL_IMAGE_CERT_INFO_OPERATOR=false \
     "$variable=$value" \
     bash "$SCRIPT"
 }

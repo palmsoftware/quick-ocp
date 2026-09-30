@@ -28,6 +28,14 @@ inputs:
     description: 'Wait for all operators to be ready'
     required: false
     default: 'false'
+  installTLSComplianceOperator:
+    description: 'Install the latest TLS Compliance Operator release'
+    required: false
+    default: 'false'
+  installImageCertInfoOperator:
+    description: 'Install the latest Image Cert Info Operator release'
+    required: false
+    default: 'false'
   desiredOCPVersion:
     description: 'OpenShift version to deploy'
     required: false
@@ -117,6 +125,8 @@ runs:
         DISABLE_CONNECTIVITY_CHECK: ${{ inputs.disableConnectivityCheck }}
         DISABLE_RESOURCE_PRECHECK: ${{ inputs.disableResourcePrecheck }}
         ENABLE_CLUSTER_MONITORING: ${{ inputs.enableClusterMonitoring }}
+        INSTALL_TLS_COMPLIANCE_OPERATOR: ${{ inputs.installTLSComplianceOperator }}
+        INSTALL_IMAGE_CERT_INFO_OPERATOR: ${{ inputs.installImageCertInfoOperator }}
       run: ${{ github.action_path }}/scripts/validate-boolean-inputs.sh
 
     - name: Resolve and validate desiredOCPVersion
@@ -325,6 +335,14 @@ runs:
       id: cluster_credentials
       shell: bash
       run: ${{ github.action_path }}/scripts/get-cluster-credentials.sh
+
+    - name: Install selected Telco operators
+      if: ${{ inputs.installTLSComplianceOperator == 'true' || inputs.installImageCertInfoOperator == 'true' }}
+      shell: bash
+      env:
+        INSTALL_TLS_COMPLIANCE_OPERATOR: ${{ inputs.installTLSComplianceOperator }}
+        INSTALL_IMAGE_CERT_INFO_OPERATOR: ${{ inputs.installImageCertInfoOperator }}
+      run: ${{ github.action_path }}/scripts/install-telco-operators.sh
 
     - name: Disable non-essential OpenShift operators to save resources
       shell: bash
