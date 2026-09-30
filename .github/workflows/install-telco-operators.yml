@@ -1,0 +1,60 @@
+name: Install Telco Operators
+
+'on':
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/install-telco-operators.yml'
+      - action.yml
+      - scripts/install-telco-operators.sh
+      - scripts/validate-boolean-inputs.sh
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/install-telco-operators.yml'
+      - action.yml
+      - scripts/install-telco-operators.sh
+      - scripts/validate-boolean-inputs.sh
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install-and-verify:
+    name: Install both operators on OpenShift Local
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Check Red Hat Status
+        uses: palmsoftware/redhat-status@d108364de55da65a956438111ef0556a4bbad0bc # v0
+        with:
+          components: |
+            api.openshift.com
+            developers.redhat.com
+
+      - name: Checkout the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Deploy OpenShift with both Telco operators
+        uses: ./
+        with:
+          ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
+          bundleCache: true
+          desiredOCPVersion: latest
+          installTLSComplianceOperator: true
+          installImageCertInfoOperator: true
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+      - name: Wait for both operator deployments
+        run: |
+          oc wait --for=condition=Available deployment/tls-compliance-operator-controller-manager \
+            --namespace=tls-compliance-operator-system --timeout=600s
+          oc wait --for=condition=Available deployment/imagecertinfo-operator-controller-manager \
+            --namespace=imagecertinfo-operator-system --timeout=600s

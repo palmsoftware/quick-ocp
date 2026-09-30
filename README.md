@@ -68,6 +68,8 @@ steps:
 | `crcCpu` | CPU allocation for OpenShift Local | No | `4` |
 | `crcDiskSize` | Disk size in GB for OpenShift Local | No | `31` |
 | `waitForOperatorsReady` | Wait for all operators to be ready | No | `false` |
+| `installTLSComplianceOperator` | Install the latest TLS Compliance Operator release | No | `false` |
+| `installImageCertInfoOperator` | Install the latest Image Cert Info Operator release | No | `false` |
 | `operatorTimeout` | Timeout in seconds for waiting for operators to become ready | No | `600` |
 | `enableClusterMonitoring` | Enable the cluster monitoring stack (auto-increases memory to 14GiB) | No | `false` |
 | `enableTelemetry` | Enable telemetry for OpenShift Local | No | `true` |
@@ -79,7 +81,9 @@ steps:
 | `proxyCaFile` | Path to a CA certificate file for the proxy | No | — |
 | `preloadImages` | Newline-separated list of container images to preload into the cluster registry | No | — |
 
-Boolean inputs (`bundleCache`, `waitForOperatorsReady`, `enableTelemetry`, `disableConnectivityCheck`, `disableResourcePrecheck`, and `enableClusterMonitoring`) accept exactly lowercase `true` or `false`. Other values, including an explicitly empty value, fail before setup begins.
+Boolean inputs (`bundleCache`, `waitForOperatorsReady`, `installTLSComplianceOperator`, `installImageCertInfoOperator`, `enableTelemetry`, `disableConnectivityCheck`, `disableResourcePrecheck`, and `enableClusterMonitoring`) accept exactly lowercase `true` or `false`. Other values, including an explicitly empty value, fail before setup begins.
+
+When either operator input is enabled, Quick OCP applies that operator's `install.yaml` from the upstream repository's latest GitHub release after cluster credentials are available. Applying the manifests does not wait for the operator deployments to become ready; set `waitForOperatorsReady: true` if you want Quick OCP to wait for operators after installation.
 
 ## Outputs
 
