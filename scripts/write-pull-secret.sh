@@ -16,16 +16,6 @@ if [[ -z "${PULL_SECRET:-}" ]]; then
   exit 1
 fi
 
-# Support the legacy pattern: ocpPullSecret: $MY_ENV_VAR (with env: MY_ENV_VAR: ${{ secrets.X }})
-# When the Actions runner sets PULL_SECRET via the env: block, $MY_ENV_VAR is never shell-expanded.
-# Detect an unexpanded shell variable reference and resolve it via bash indirect expansion.
-if [[ "$PULL_SECRET" =~ ^\$[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-  VAR_NAME="${PULL_SECRET#\$}"
-  if [[ -n "${!VAR_NAME:-}" ]]; then
-    PULL_SECRET="${!VAR_NAME}"
-  fi
-fi
-
 if ! printf '%s' "$PULL_SECRET" | jq empty 2>/dev/null; then
   gha_error "PULL_SECRET is not valid JSON. Verify the secret value in your repository settings."
   exit 1
