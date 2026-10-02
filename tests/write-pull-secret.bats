@@ -92,6 +92,23 @@ teardown() {
   [ ! -d "$state_dir" ]
 }
 
+@test "resolves PULL_SECRET when it is an unexpanded shell variable reference" {
+  export MY_PULL_SECRET='{"auths":{"registry.example.com":{"auth":"dXNlcjpwYXNz"}}}'
+  export PULL_SECRET='$MY_PULL_SECRET'
+  run bash "$SCRIPT"
+  [ "$status" -eq 0 ]
+  secret_file=$(sed -n 's/^path=//p' "$GITHUB_OUTPUT")
+  [ "$(cat "$secret_file")" = "$MY_PULL_SECRET" ]
+}
+
+@test "fails when PULL_SECRET is an unexpanded variable reference pointing to nothing" {
+  unset MY_EMPTY_VAR
+  export PULL_SECRET='$MY_EMPTY_VAR'
+  run bash "$SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "not valid JSON" ]]
+}
+
 @test "refuses to clean paths outside the private runner temp directory" {
   run env QUICK_OCP_PULL_SECRET_STATE_DIR="$TMPDIR" bash "$CLEANUP_SCRIPT"
 

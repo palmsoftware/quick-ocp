@@ -14,7 +14,10 @@ permissions: read-all
 jobs:
   run-ocp:
     timeout-minutes: 90
-    if: ${{ !inputs.skip-dependabot || github.actor != 'dependabot[bot]' }}
+    if: >-
+      (!inputs.skip-dependabot || github.actor != 'dependabot[bot]') &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     strategy:
       fail-fast: false
       matrix:
@@ -60,7 +63,10 @@ jobs:
 
   test-cluster-monitoring:
     timeout-minutes: 60
-    if: ${{ !inputs.skip-dependabot || github.actor != 'dependabot[bot]' }}
+    if: >-
+      (!inputs.skip-dependabot || github.actor != 'dependabot[bot]') &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     env:
       SHELL: /bin/bash
@@ -98,7 +104,10 @@ jobs:
 
   test-preload-images:
     timeout-minutes: 45
-    if: ${{ !inputs.skip-dependabot || github.actor != 'dependabot[bot]' }}
+    if: >-
+      (!inputs.skip-dependabot || github.actor != 'dependabot[bot]') &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     env:
       SHELL: /bin/bash
