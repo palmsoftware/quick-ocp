@@ -8,7 +8,7 @@ Quickly spawns an OCP cluster using [OpenShift Local](https://developers.redhat.
 
 This will work on the free tier lowest resource runners at the moment with additional runner support added later if needed.
 
-Read more about GitHub Actions runners [here](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners).
+Read more about GitHub Actions runners [here](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners).
 
 If you are looking to quickly spawn Kubernetes in your Action runner, try [quick-k8s](https://github.com/palmsoftware/quick-k8s).
 
@@ -97,6 +97,10 @@ When either operator input is enabled, Quick OCP applies that operator's `instal
 | `kubeconfig-path` | The path to the kubeconfig file for cluster access |
 | `cache-hit` | Whether the CRC bundle cache was hit (`true`, `false`, or `disabled`) |
 | `setup-duration` | Total deployment time in seconds |
+| `download-duration` | Time to download/install CRC binary and restore bundle cache (seconds) |
+| `crc-setup-duration` | Time for CRC setup and cluster start (seconds) |
+| `node-ready-duration` | Time for cluster node to reach Ready state (seconds) |
+| `operators-duration` | Time for cluster operators to become available (seconds; empty if `waitForOperatorsReady` is `false`) |
 
 ## OpenShift Version Selection
 
@@ -145,7 +149,9 @@ To ensure stability and avoid issues with specific CRC releases, this action use
     "4.19": {
       "broken_versions": ["2.55.0", "2.55.1"],
       "issue": "https://github.com/crc-org/crc/issues/4981",
-      "description": "CRC 2.55.x with bundle 4.19.13 has expired kube-scheduler certificates"
+      "description": "CRC 2.55.x with bundle 4.19.13 has expired kube-scheduler certificates",
+      "working_version": "2.54.0",
+      "bundle_version": "4.19.8"
     }
   }
 }

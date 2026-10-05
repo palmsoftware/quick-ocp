@@ -106,7 +106,7 @@ teardown() {
   export PULL_SECRET='$MY_EMPTY_VAR'
   run bash "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "not valid JSON" ]]
+  [[ "$output" =~ "unexpanded variable reference" ]]
 }
 
 @test "refuses to clean paths outside the private runner temp directory" {

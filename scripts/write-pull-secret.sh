@@ -23,6 +23,10 @@ if [[ "$PULL_SECRET" =~ ^\$[A-Za-z_][A-Za-z0-9_]*$ ]]; then
   VAR_NAME="${PULL_SECRET#\$}"
   if [[ -n "${!VAR_NAME:-}" ]]; then
     PULL_SECRET="${!VAR_NAME}"
+  else
+    gha_error "PULL_SECRET looks like an unexpanded variable reference (\$$VAR_NAME), but \$$VAR_NAME is not set."
+    echo "  Hint: Add '${VAR_NAME}: \${{ secrets.OCP_PULL_SECRET }}' under 'env:' in your workflow step." >&2
+    exit 1
   fi
 fi
 

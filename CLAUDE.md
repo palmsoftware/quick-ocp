@@ -68,7 +68,7 @@ Tested on `ubuntu-22.04`, `ubuntu-24.04`, and `ubuntu-26.04`.
 ## Release Tags
 
 - `@v1` — major version tag (recommended)
-- `@v1.0.1` — latest patch release
+- `@v1.0.6` — latest patch release
 
 Semantic versioning: `v1.x.y` with `update-major-tag.yml` maintaining the major tag.
 

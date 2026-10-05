@@ -106,6 +106,18 @@ outputs:
   setup-duration:
     description: 'Total deployment time in seconds'
     value: ${{ steps.deployment_duration.outputs.duration }}
+  download-duration:
+    description: 'Time to download/install CRC binary and restore bundle cache (seconds)'
+    value: ${{ steps.phase_download_duration.outputs.duration }}
+  crc-setup-duration:
+    description: 'Time for CRC setup and cluster start (seconds)'
+    value: ${{ steps.phase_crc_duration.outputs.duration }}
+  node-ready-duration:
+    description: 'Time for cluster node to reach Ready state (seconds)'
+    value: ${{ steps.phase_cluster_duration.outputs.duration }}
+  operators-duration:
+    description: 'Time for cluster operators to become available (seconds; empty if waitForOperatorsReady is false)'
+    value: ${{ steps.phase_operators_duration.outputs.duration }}
 
 runs:
   using: 'composite'
@@ -163,6 +175,11 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
       run: ${{ github.action_path }}/scripts/set-crc-version.sh "${{ steps.resolve_ocp_version.outputs.effective_version }}" "${{ github.action_path }}" "${{ steps.resolve_ocp_version.outputs.crc_version_override }}"
 
+    - name: Record download phase start
+      id: phase_download_start
+      shell: bash
+      run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
+
     - name: Download and Install OpenShift Local Binary
       shell: bash
       run: |
@@ -207,6 +224,16 @@ runs:
           echo "cache-hit=false" >>"${GITHUB_OUTPUT}"
           echo "=== Bundle cache: MISS (will be saved after setup) ==="
         fi
+
+    - name: Record download phase duration
+      id: phase_download_duration
+      shell: bash
+      env:
+        START_TIME: ${{ steps.phase_download_start.outputs.start_time }}
+      run: |
+        DURATION=$(( $(date +%s) - START_TIME ))
+        echo "duration=$DURATION" >>"${GITHUB_OUTPUT}"
+        echo "=== Download phase: ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s) ==="
 
     - name: Setup CRC cache directory on larger disk
       shell: bash
@@ -261,6 +288,11 @@ runs:
         PROXY_CA_FILE_INPUT: ${{ inputs.proxyCaFile }}
       run: ${{ github.action_path }}/scripts/configure-crc.sh "${{ inputs.crcCpu }}" "${{ inputs.crcMemory }}" "${{ inputs.crcDiskSize }}" "${{ inputs.enableTelemetry }}" "${{ inputs.enableClusterMonitoring }}"
 
+    - name: Record CRC phase start
+      id: phase_crc_start
+      shell: bash
+      run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
+
     - name: Run setup
       id: crc-setup
       continue-on-error: true
@@ -313,6 +345,21 @@ runs:
         echo "=== Cleanup complete ==="
       continue-on-error: true
 
+    - name: Record CRC phase duration
+      id: phase_crc_duration
+      shell: bash
+      env:
+        START_TIME: ${{ steps.phase_crc_start.outputs.start_time }}
+      run: |
+        DURATION=$(( $(date +%s) - START_TIME ))
+        echo "duration=$DURATION" >>"${GITHUB_OUTPUT}"
+        echo "=== CRC setup+start phase: ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s) ==="
+
+    - name: Record node-ready phase start
+      id: phase_cluster_start
+      shell: bash
+      run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
+
     - name: Ensure CRC DNS entries in /etc/hosts
       shell: bash
       run: ${{ github.action_path }}/scripts/ensure-crc-dns.sh
@@ -330,6 +377,16 @@ runs:
         echo "::group::Wait for Node Ready"
         ${{ github.action_path }}/scripts/wait-for-node-ready.sh
         echo "::endgroup::"
+
+    - name: Record node-ready phase duration
+      id: phase_cluster_duration
+      shell: bash
+      env:
+        START_TIME: ${{ steps.phase_cluster_start.outputs.start_time }}
+      run: |
+        DURATION=$(( $(date +%s) - START_TIME ))
+        echo "duration=$DURATION" >>"${GITHUB_OUTPUT}"
+        echo "=== Node-ready phase: ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s) ==="
 
     - name: Get cluster credentials
       id: cluster_credentials
@@ -360,10 +417,27 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/preload-images.sh "${{ inputs.preloadImages }}"
 
+    - name: Record operators phase start
+      id: phase_operators_start
+      if: ${{ inputs.waitForOperatorsReady == 'true' }}
+      shell: bash
+      run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
+
     - name: Wait for operators to be available
       if: ${{ inputs.waitForOperatorsReady == 'true' }}
       shell: bash
       run: ${{ github.action_path }}/scripts/wait-for-operators.sh "${{ inputs.operatorTimeout }}"
+
+    - name: Record operators phase duration
+      id: phase_operators_duration
+      if: ${{ inputs.waitForOperatorsReady == 'true' }}
+      shell: bash
+      env:
+        START_TIME: ${{ steps.phase_operators_start.outputs.start_time }}
+      run: |
+        DURATION=$(( $(date +%s) - START_TIME ))
+        echo "duration=$DURATION" >>"${GITHUB_OUTPUT}"
+        echo "=== Operators phase: ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s) ==="
 
     - name: Comprehensive Disk Space Report
       shell: bash
@@ -394,10 +468,20 @@ runs:
       shell: bash
       env:
         START_TIME: ${{ steps.deployment_start.outputs.start_time }}
+        DOWNLOAD_DURATION: ${{ steps.phase_download_duration.outputs.duration }}
+        CRC_DURATION: ${{ steps.phase_crc_duration.outputs.duration }}
+        NODE_DURATION: ${{ steps.phase_cluster_duration.outputs.duration }}
+        OPERATORS_DURATION: ${{ steps.phase_operators_duration.outputs.duration }}
       run: |
         DURATION=$(( $(date +%s) - START_TIME ))
         echo "duration=$DURATION" >>"${GITHUB_OUTPUT}"
-        echo "=== Deployment completed in ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s) ==="
+        echo "=== Deployment Phase Timing Breakdown ==="
+        printf "  %-20s %s\n" "Download:"    "${DOWNLOAD_DURATION:-N/A}${DOWNLOAD_DURATION:+s}"
+        printf "  %-20s %s\n" "CRC setup+start:" "${CRC_DURATION:-N/A}${CRC_DURATION:+s}"
+        printf "  %-20s %s\n" "Node ready:"  "${NODE_DURATION:-N/A}${NODE_DURATION:+s}"
+        printf "  %-20s %s\n" "Operators:"   "${OPERATORS_DURATION:-N/A}${OPERATORS_DURATION:+s}"
+        echo "  ----------------------------------------"
+        echo "  Total:               ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s)"
 
     - name: Remove temporary pull secret
       if: always()
