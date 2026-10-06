@@ -483,6 +483,45 @@ runs:
         echo "  ----------------------------------------"
         echo "  Total:               ${DURATION}s ($(( DURATION / 60 ))m $(( DURATION % 60 ))s)"
 
+    - name: Write job summary
+      if: always()
+      shell: bash
+      env:
+        OCP_VERSION: ${{ steps.ocp_version_lookup.outputs.ocp_version }}
+        CRC_VERSION: ${{ steps.crc_version_lookup.outputs.version_number }}
+        CACHE_HIT: ${{ steps.cache_result.outputs.cache-hit }}
+        API_URL: ${{ steps.cluster_credentials.outputs.api-url }}
+        TOTAL_DURATION: ${{ steps.deployment_duration.outputs.duration }}
+        DOWNLOAD_DURATION: ${{ steps.phase_download_duration.outputs.duration }}
+        CRC_DURATION: ${{ steps.phase_crc_duration.outputs.duration }}
+        NODE_DURATION: ${{ steps.phase_cluster_duration.outputs.duration }}
+        OPERATORS_DURATION: ${{ steps.phase_operators_duration.outputs.duration }}
+      run: |
+        {
+          echo "## Quick OCP Deployment"
+          echo ""
+          echo "| | |"
+          echo "|---|---|"
+          echo "| **OCP Version** | ${OCP_VERSION:-—} |"
+          echo "| **CRC Version** | ${CRC_VERSION:-—} |"
+          echo "| **Cache Hit** | ${CACHE_HIT:-—} |"
+          echo "| **API URL** | \`${API_URL:-—}\` |"
+          echo ""
+          echo "### Phase Timing"
+          echo ""
+          echo "| Phase | Duration |"
+          echo "|---|---|"
+          echo "| Download | ${DOWNLOAD_DURATION:-N/A}${DOWNLOAD_DURATION:+s} |"
+          echo "| CRC setup+start | ${CRC_DURATION:-N/A}${CRC_DURATION:+s} |"
+          echo "| Node ready | ${NODE_DURATION:-N/A}${NODE_DURATION:+s} |"
+          echo "| Operators | ${OPERATORS_DURATION:-N/A}${OPERATORS_DURATION:+s} |"
+          if [[ -n "${TOTAL_DURATION}" ]]; then
+            echo "| **Total** | **${TOTAL_DURATION}s ($(( TOTAL_DURATION / 60 ))m $(( TOTAL_DURATION % 60 ))s)** |"
+          else
+            echo "| **Total** | **—** |"
+          fi
+        } >>"${GITHUB_STEP_SUMMARY}"
+
     - name: Remove temporary pull secret
       if: always()
       shell: bash
