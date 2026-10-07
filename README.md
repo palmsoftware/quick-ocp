@@ -1,8 +1,8 @@
 # quick-ocp
 
-[![Nightly Test](https://github.com/palmsoftware/quick-ocp/actions/workflows/nightly.yml/badge.svg)](https://github.com/palmsoftware/quick-ocp/actions/workflows/nightly.yml)
-[![Test Changes](https://github.com/palmsoftware/quick-ocp/actions/workflows/pre-main.yml/badge.svg)](https://github.com/palmsoftware/quick-ocp/actions/workflows/pre-main.yml)
-[![Update Major Version Tag](https://github.com/palmsoftware/quick-ocp/actions/workflows/update-major-tag.yml/badge.svg)](https://github.com/palmsoftware/quick-ocp/actions/workflows/update-major-tag.yml)
+[![Nightly Test](https://github.com/palmsoftware/quick-ocp/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/palmsoftware/quick-ocp/actions/workflows/nightly.yml)
+[![Test Changes](https://github.com/palmsoftware/quick-ocp/actions/workflows/pre-main.yml/badge.svg?branch=main)](https://github.com/palmsoftware/quick-ocp/actions/workflows/pre-main.yml)
+[![Update Major Version Tag](https://github.com/palmsoftware/quick-ocp/actions/workflows/update-major-tag.yml/badge.svg?branch=main)](https://github.com/palmsoftware/quick-ocp/actions/workflows/update-major-tag.yml)
 
 Quickly spawns an OCP cluster using [OpenShift Local](https://developers.redhat.com/products/openshift-local/overview) for use on GitHub Actions.
 
