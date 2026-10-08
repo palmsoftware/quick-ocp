@@ -11,17 +11,25 @@ interval=10
 
 excluded=$(oc get clusterversion/version -ojsonpath='{range .spec.overrides[?(@.kind=="ClusterOperator")]}{.name}{"\n"}{end}' 2>/dev/null || true)
 if [ -n "$excluded" ]; then
-  exclude_pattern=$(echo "$excluded" | paste -sd'|')
-  echo "Excluding unmanaged operators from readiness check: $(echo "$excluded" | paste -sd', ')"
+  exclude_pattern=$(echo "$excluded" | paste -sd'|' -)
+  echo "Excluding unmanaged operators from readiness check: $(echo "$excluded" | paste -sd', ' -)"
 fi
 
 while true; do
-  if [ -n "${exclude_pattern:-}" ]; then
-    co_status=$(oc get co --no-headers | grep -v -E "^($exclude_pattern) ")
+  # The API server can briefly reset connections while operators roll out
+  # renewed certificates, so a failed query is retried until the timeout.
+  if ! co_status=$(oc get co --no-headers --request-timeout='30s'); then
+    not_ready="  Unable to query cluster operators: oc get co failed; retrying."
   else
-    co_status=$(oc get co --no-headers)
+    if [ -n "${exclude_pattern:-}" ]; then
+      co_status=$(echo "$co_status" | grep -v -E "^($exclude_pattern) " || true)
+    fi
+    if [ -z "$co_status" ]; then
+      not_ready="  No cluster operators returned by oc get co; retrying."
+    else
+      not_ready=$(echo "$co_status" | awk '$3 != "True" || $4 != "False" || $5 != "False" {print "  " $1, "Available="$3, "Progressing="$4, "Degraded="$5}')
+    fi
   fi
-  not_ready=$(echo "$co_status" | awk '$3 != "True" || $4 != "False" || $5 != "False" {print "  " $1, "Available="$3, "Progressing="$4, "Degraded="$5}')
 
   if [ -z "$not_ready" ]; then
     echo "All operators are available, not progressing, and not degraded"
