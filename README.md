@@ -64,6 +64,7 @@ steps:
 | `desiredOCPVersion` | OpenShift version to deploy (`4.18`, `4.20` or later, or `latest`; `4.19` is a deprecated alias for `4.20`) | No | `latest` |
 | `crcVersion` | Specific CRC version to use (overrides version detection and pinning) | No | — |
 | `bundleCache` | Cache the CRC bundles for faster startup | No | `false` |
+| `imageBundleCache` | Pre-seed the CRC bundle from the Quay image cache before setup, avoiding the OpenShift mirror on bundle-cache misses | No | `true` |
 | `crcMemory` | Memory allocation in MB for OpenShift Local | No | `10752` |
 | `crcCpu` | CPU allocation for OpenShift Local | No | `4` |
 | `crcDiskSize` | Disk size in GB for OpenShift Local | No | `31` |
@@ -81,7 +82,7 @@ steps:
 | `proxyCaFile` | Path to a CA certificate file for the proxy | No | — |
 | `preloadImages` | Newline-separated list of container images to preload into the cluster registry | No | — |
 
-Boolean inputs (`bundleCache`, `waitForOperatorsReady`, `installTLSComplianceOperator`, `installImageCertInfoOperator`, `enableTelemetry`, `disableConnectivityCheck`, `disableResourcePrecheck`, and `enableClusterMonitoring`) accept exactly lowercase `true` or `false`. Other values, including an explicitly empty value, fail before setup begins.
+Boolean inputs (`bundleCache`, `imageBundleCache`, `waitForOperatorsReady`, `installTLSComplianceOperator`, `installImageCertInfoOperator`, `enableTelemetry`, `disableConnectivityCheck`, `disableResourcePrecheck`, and `enableClusterMonitoring`) accept exactly lowercase `true` or `false`. Other values, including an explicitly empty value, fail before setup begins.
 
 When either operator input is enabled, Quick OCP applies that operator's `install.yaml` from the upstream repository's latest GitHub release after cluster credentials are available. Applying the manifests does not wait for the operator deployments to become ready; set `waitForOperatorsReady: true` if you want Quick OCP to wait for operators after installation.
 
@@ -96,6 +97,7 @@ When either operator input is enabled, Quick OCP applies that operator's `instal
 | `kubeadmin-password` | The kubeadmin password for cluster authentication (masked in logs) |
 | `kubeconfig-path` | The path to the kubeconfig file for cluster access |
 | `cache-hit` | Whether the CRC bundle cache was hit (`true`, `false`, or `disabled`) |
+| `bundle-preseed-result` | Result of the Quay image cache pre-seed (`preseeded`, `skipped-existing`, `skipped-stale`, `skipped-unavailable`, `failed`; empty when disabled or not attempted) |
 | `setup-duration` | Total deployment time in seconds |
 | `download-duration` | Time to download/install CRC binary and restore bundle cache (seconds) |
 | `crc-setup-duration` | Time for CRC setup and cluster start (seconds) |
@@ -180,6 +182,23 @@ For deprecated `desiredOCPVersion: 4.19`, the action maps the request to `4.20` 
 1. Explicit `crcVersion` input (highest priority, except for deprecated aliases)
 2. Pinned version in `crc-version-pins.json`
 3. Automatic detection via GitHub API (lowest priority)
+
+## Image Bundle Cache (Quay)
+
+When the GitHub Actions bundle cache misses (the common case — the 10 GB repo cache quota cannot hold every ~5.7 GB bundle, so entries are constantly evicted), the action pre-seeds the CRC bundle from a public Quay image cache ([`palmsoftware/quick-ocp-cache`](https://github.com/palmsoftware/quick-ocp-cache)) before running `crc setup`. This avoids downloading the bundle from the OpenShift mirror, which is the most fragile part of the deployment.
+
+**How it works:**
+- Runs whenever `imageBundleCache` is `true` (the default). It self-skips — no network — when the GitHub Actions bundle cache already provided a valid bundle, and still runs after a cache "hit" that yielded only corrupt bundles.
+- Pulls `quay.io/bapalm/quick-ocp-cache:<ocp-minor>-<arch>` (for `desiredOCPVersion: latest`, the minor is derived from the z-version embedded in the resolved CRC binary — e.g. `latest` → 4.22.14 → the `4.22` image), extracts the bundle into `~/.crc/cache/`, and verifies it matches that exact z-version. `crc setup` then uses the pre-seeded bundle instead of downloading it.
+- The `bundle-preseed-result` output reports the outcome: `preseeded`, `skipped-existing`, `skipped-stale`, `skipped-unavailable`, or `failed`.
+
+**Failure is always non-fatal:** any pre-seed problem (missing image, stale content, extraction failure) logs a warning and falls back to the normal `crc setup` mirror download. A pre-seed bug cannot fail your job.
+
+Limitations:
+- When the resolved version has no matching Quay image yet (e.g. `desiredOCPVersion: latest` moves to a brand-new minor before the cache repo builds its image), the pre-seed skips gracefully and the mirror download remains the path.
+- Image freshness depends on the `palmsoftware/quick-ocp-cache` repo's weekly rebuilds. This repository's CI verifies each pinned image's content against the CRC version pins on every PR and nightly, so a stale image surfaces at CI time rather than at runtime.
+
+Set `imageBundleCache: false` to opt out (e.g., for restricted-network runners without Quay access).
 
 ## Cluster Monitoring
 
@@ -266,6 +285,17 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 - Expand the **CRC Setup and Start** group in the job log to see the full output from each attempt.
 - If every attempt fails with the same error, it's likely a resource issue (see OOM and disk sections above).
 - If the error mentions `kubeconfig` or `pull secret`, these are typically transient and resolve on retry.
+
+### CRC Setup Failures
+
+**Symptom:** The `Run setup` step fails after retries with bundle download or uncompression errors.
+
+**Cause:** `crc setup` downloads and uncompresses the ~5.7 GB CRC bundle; both stages can fail transiently. The action retries setup up to 3 times, removing partial (under 1 GiB) bundles and stale extraction directories between attempts, and on final failure prints the last attempt's log, cache contents, disk usage, and a libvirt journal tail.
+
+**What to check:**
+- Expand the **CRC Setup and Start** group in the job log — each attempt writes `/tmp/crc-setup-attempt-<n>.log` and the final failure dumps the last 80 lines.
+- Check the `Bundle Pre-seed` row in the job summary: `skipped-stale` or `skipped-unavailable` means the Quay image cache could not supply the bundle and the mirror download was used.
+- Repeated identical failures across attempts usually indicate a mirror outage or disk pressure (see Disk Space Exhaustion above).
 
 ### Operator Timeout
 

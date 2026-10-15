@@ -133,3 +133,60 @@ jobs:
           echo ""
           echo "=== Imagestream details ==="
           oc get imagestream nginx -n openshift -o yaml
+
+  # Deterministic coverage of the Quay image cache pre-seed. bundleCache:
+  # false forces the GitHub bundle cache to miss on every run, so the
+  # enabled cell always exercises the pre-seed path; the disabled cell
+  # proves the imageBundleCache opt-out preserves the legacy mirror path.
+  test-bundle-preseed:
+    timeout-minutes: 60
+    if: >-
+      (!inputs.skip-dependabot || github.actor != 'dependabot[bot]') &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    strategy:
+      fail-fast: false
+      matrix:
+        preseed: [enabled, disabled]
+    runs-on: ubuntu-24.04
+    env:
+      SHELL: /bin/bash
+    steps:
+      - name: Check Red Hat Status
+        uses: palmsoftware/redhat-status@d108364de55da65a956438111ef0556a4bbad0bc # v0
+        with:
+          components: |
+            api.openshift.com
+            developers.redhat.com
+
+      - name: Checkout the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Deploy OCP with image bundle pre-seed ${{ matrix.preseed }}
+        id: deploy
+        uses: ./
+        with:
+          ocpPullSecret: ${{ secrets.OCP_PULL_SECRET }}
+          bundleCache: false
+          desiredOCPVersion: '4.20'
+          imageBundleCache: ${{ matrix.preseed == 'enabled' }}
+        env:
+          OCP_PULL_SECRET: ${{ secrets.OCP_PULL_SECRET }}
+
+      - name: Verify bundle pre-seed result (${{ matrix.preseed }})
+        run: |
+          RESULT="${{ steps.deploy.outputs.bundle-preseed-result }}"
+          echo "bundle-preseed-result: '${RESULT}'"
+          if [ "${{ matrix.preseed }}" = "enabled" ]; then
+            if [ "${RESULT}" != "preseeded" ]; then
+              echo "::error::Expected the Quay image cache pre-seed to run (result=preseeded), got '${RESULT}'"
+              exit 1
+            fi
+            echo "Pre-seed ran as expected"
+          else
+            if [ -n "${RESULT}" ]; then
+              echo "::error::Expected the pre-seed to be skipped when imageBundleCache is false, got '${RESULT}'"
+              exit 1
+            fi
+            echo "Pre-seed skipped as expected"
+          fi

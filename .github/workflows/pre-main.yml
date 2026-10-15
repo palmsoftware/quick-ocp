@@ -47,6 +47,9 @@ jobs:
       - name: Check Quay cache images exist for all pinned OCP versions
         run: make check-image-cache
 
+  verify-cache-images:
+    uses: ./.github/workflows/_verify-cache-images.yml
+
   ocp-tests:
     uses: ./.github/workflows/reusable-ocp-tests.yml
     with:

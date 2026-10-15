@@ -15,3 +15,8 @@ jobs:
   ocp-tests:
     uses: ./.github/workflows/reusable-ocp-tests.yml
     secrets: inherit
+
+  # Re-validates the Quay cache images after the builder's weekly Sunday
+  # rebuilds, even when main is quiet.
+  verify-cache-images:
+    uses: ./.github/workflows/_verify-cache-images.yml

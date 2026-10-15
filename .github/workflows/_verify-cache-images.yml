@@ -1,0 +1,48 @@
+name: Verify Cache Images
+
+on:
+  workflow_call:
+
+permissions: read-all
+
+jobs:
+  determine-versions:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.resolve.outputs.matrix }}
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build verify matrix from crc-version-pins.json
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          # Every pinned minor (minus "latest", a pointer with no image) on
+          # both architectures. GITHUB_OUTPUT key=value entries must be
+          # single-line, so emit compact JSON (jq's default is pretty-printed).
+          MATRIX=$(jq -c '[ .version_pins | keys[] | select(. != "latest") ] as $versions
+                         | [ $versions[] as $v | ("amd64", "arm64") as $a
+                           | {version: $v, arch: $a} ]' crc-version-pins.json)
+          echo "matrix=${MATRIX}" >>"${GITHUB_OUTPUT}"
+          echo "Verify matrix:"
+          jq . <<<"${MATRIX}"
+
+  verify-image-cache:
+    needs: determine-versions
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.determine-versions.outputs.matrix) }}
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Verify Quay cache image content for OCP ${{ matrix.version }} (${{ matrix.arch }})
+        env:
+          OCP_VERSION: ${{ matrix.version }}
+          ARCH: ${{ matrix.arch }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: scripts/verify-image-cache-content.sh

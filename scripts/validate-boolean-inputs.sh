@@ -15,6 +15,7 @@ validate_boolean() {
 }
 
 validate_boolean bundleCache "${BUNDLE_CACHE-}"
+validate_boolean imageBundleCache "${IMAGE_BUNDLE_CACHE-}"
 validate_boolean waitForOperatorsReady "${WAIT_FOR_OPERATORS_READY-}"
 validate_boolean enableTelemetry "${ENABLE_TELEMETRY-}"
 validate_boolean disableConnectivityCheck "${DISABLE_CONNECTIVITY_CHECK-}"
