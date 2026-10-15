@@ -3,6 +3,7 @@
 SCRIPT="$BATS_TEST_DIRNAME/../scripts/validate-boolean-inputs.sh"
 INPUTS=(
   bundleCache:BUNDLE_CACHE
+  imageBundleCache:IMAGE_BUNDLE_CACHE
   waitForOperatorsReady:WAIT_FOR_OPERATORS_READY
   enableTelemetry:ENABLE_TELEMETRY
   disableConnectivityCheck:DISABLE_CONNECTIVITY_CHECK
@@ -18,6 +19,7 @@ check_input() {
 
   run env \
     BUNDLE_CACHE=false \
+    IMAGE_BUNDLE_CACHE=false \
     WAIT_FOR_OPERATORS_READY=false \
     ENABLE_TELEMETRY=true \
     DISABLE_CONNECTIVITY_CHECK=false \

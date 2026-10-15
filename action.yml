@@ -24,6 +24,10 @@ inputs:
     description: 'Cache the crc bundles for faster startup'
     required: false
     default: 'false'
+  imageBundleCache:
+    description: 'Pre-seed the CRC bundle from the Quay image cache before setup, avoiding the OpenShift mirror on bundle-cache misses'
+    required: false
+    default: 'true'
   waitForOperatorsReady:
     description: 'Wait for all operators to be ready'
     required: false
@@ -103,6 +107,9 @@ outputs:
   cache-hit:
     description: 'Whether the CRC bundle cache was hit (true/false/disabled)'
     value: ${{ steps.cache_result.outputs.cache-hit }}
+  bundle-preseed-result:
+    description: 'Result of the Quay image cache pre-seed (preseeded/skipped-existing/skipped-stale/skipped-unavailable/failed; empty when disabled or not attempted)'
+    value: ${{ steps.bundle-preseed.outputs.result }}
   setup-duration:
     description: 'Total deployment time in seconds'
     value: ${{ steps.deployment_duration.outputs.duration }}
@@ -132,6 +139,7 @@ runs:
       shell: bash
       env:
         BUNDLE_CACHE: ${{ inputs.bundleCache }}
+        IMAGE_BUNDLE_CACHE: ${{ inputs.imageBundleCache }}
         WAIT_FOR_OPERATORS_READY: ${{ inputs.waitForOperatorsReady }}
         ENABLE_TELEMETRY: ${{ inputs.enableTelemetry }}
         DISABLE_CONNECTIVITY_CHECK: ${{ inputs.disableConnectivityCheck }}
@@ -279,6 +287,22 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/memory-pressure-monitor.sh start
 
+    # Pre-seed the CRC bundle from the Quay image cache so crc setup does not
+    # depend on the OpenShift mirror (the least reliable download in the
+    # pipeline). The script self-skips when a valid bundle is already present
+    # (GitHub cache hit). All failures are non-fatal (script exits 0 with a
+    # warning; step has continue-on-error) — a pre-seed bug degrades to the
+    # normal mirror download, never fails the job.
+    - name: Pre-seed CRC bundle from image cache
+      id: bundle-preseed
+      if: ${{ inputs.imageBundleCache == 'true' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        OCP_VERSION: ${{ steps.resolve_ocp_version.outputs.effective_version }}
+        EXPECTED_OCP_Z_VERSION: ${{ steps.ocp_version_lookup.outputs.ocp_version }}
+      run: ${{ github.action_path }}/scripts/pull-bundle-from-image-cache.sh preseed
+
     - name: Start OpenShift Local
       shell: bash
       env:
@@ -310,6 +334,8 @@ runs:
       shell: bash
       env:
         OCP_VERSION: ${{ steps.resolve_ocp_version.outputs.effective_version }}
+        EXPECTED_OCP_Z_VERSION: ${{ steps.ocp_version_lookup.outputs.ocp_version }}
+        PRESEED_RESULT: ${{ steps.bundle-preseed.outputs.result }}
       run: ${{ github.action_path }}/scripts/pull-bundle-from-image-cache.sh
 
     - name: Retry setup after bundle recovery
@@ -490,6 +516,7 @@ runs:
         OCP_VERSION: ${{ steps.ocp_version_lookup.outputs.ocp_version }}
         CRC_VERSION: ${{ steps.crc_version_lookup.outputs.version_number }}
         CACHE_HIT: ${{ steps.cache_result.outputs.cache-hit }}
+        BUNDLE_PRESEED_RESULT: ${{ steps.bundle-preseed.outputs.result }}
         API_URL: ${{ steps.cluster_credentials.outputs.api-url }}
         TOTAL_DURATION: ${{ steps.deployment_duration.outputs.duration }}
         DOWNLOAD_DURATION: ${{ steps.phase_download_duration.outputs.duration }}
@@ -505,6 +532,7 @@ runs:
           echo "| **OCP Version** | ${OCP_VERSION:-—} |"
           echo "| **CRC Version** | ${CRC_VERSION:-—} |"
           echo "| **Cache Hit** | ${CACHE_HIT:-—} |"
+          echo "| **Bundle Pre-seed** | ${BUNDLE_PRESEED_RESULT:-—} |"
           echo "| **API URL** | \`${API_URL:-—}\` |"
           echo ""
           echo "### Phase Timing"

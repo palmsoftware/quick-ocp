@@ -74,7 +74,7 @@ Semantic versioning: `v1.x.y` with `update-major-tag.yml` maintaining the major 
 
 ## Common Gotchas
 
-1. **Bundle caching**: `bundleCache: true` uses GitHub Actions cache (10 GB limit). Essential on free-tier runners.
+1. **Bundle caching**: `bundleCache: true` uses GitHub Actions cache (10 GB limit). Essential on free-tier runners. On cache misses, `imageBundleCache: true` (the default) pre-seeds the bundle from the Quay image cache (`bapalm/quick-ocp-cache`); pre-seed failures always degrade to the mirror download.
 2. **Memory floor**: `crcMemory` minimum is 10752 MB (CRC requirement); default matches this.
 3. **Cluster monitoring**: Auto-increases memory to 14336 MB; allow 60-minute job timeout.
 4. **Disk space**: CRC needs ~25 GB free; action runs quick-cleanup in aggressive mode before setup.

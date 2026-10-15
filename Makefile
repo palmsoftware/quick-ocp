@@ -1,4 +1,4 @@
-.PHONY: lint fix-lint test check-image-cache help
+.PHONY: lint fix-lint test check-image-cache verify-image-cache help
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -21,4 +21,10 @@ test: ## Run BATS unit tests for core validation scripts
 
 check-image-cache: ## Check that all Quay cache images exist for pinned OCP versions
 	@scripts/check-image-cache.sh
+
+verify-image-cache: ## Verify Quay cache image content matches the pinned CRC versions (this machine's arch)
+	@for ocp in $$(jq -r '.version_pins | keys[] | select(. != "latest")' crc-version-pins.json); do \
+		echo "==> Verifying cache image for OCP $${ocp}" ; \
+		OCP_VERSION="$${ocp}" scripts/verify-image-cache-content.sh || exit 1 ; \
+	done
 
