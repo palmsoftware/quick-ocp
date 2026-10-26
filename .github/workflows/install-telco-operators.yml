@@ -38,7 +38,7 @@ jobs:
       SHELL: /bin/bash
     steps:
       - name: Check Red Hat Status
-        uses: palmsoftware/redhat-status@d108364de55da65a956438111ef0556a4bbad0bc # v0
+        uses: palmsoftware/redhat-status@7e6c95c355d6955fd7e392989329b120214312a0 # v0
         with:
           components: |
             api.openshift.com
