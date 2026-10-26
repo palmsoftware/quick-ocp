@@ -26,6 +26,12 @@ concurrency:
 jobs:
   install-and-verify:
     name: Install both operators on OpenShift Local
+    # Dependabot and fork PRs receive no repository secrets, so OCP_PULL_SECRET
+    # would be empty and the run would fail at the pull-secret step.
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
