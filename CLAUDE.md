@@ -68,9 +68,13 @@ Tested on `ubuntu-22.04`, `ubuntu-24.04`, and `ubuntu-26.04`.
 ## Release Tags
 
 - `@v1` — major version tag (recommended)
-- `@v1.0.6` — latest patch release
+- `@v1.x.y` — exact patch release; see the [releases page](https://github.com/palmsoftware/quick-ocp/releases/latest) for the current version
 
 Semantic versioning: `v1.x.y` with `update-major-tag.yml` maintaining the major tag.
+
+`update-major-tag.yml` force-moves `v1` to the new release on every publish, so the major tag is
+never fast-forwardable from a clone. A plain `git fetch --tags` therefore fails with
+`! [rejected] v1 -> v1 (would clobber existing tag)`; use `git fetch --tags --force`.
 
 ## Common Gotchas
 
