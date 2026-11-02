@@ -12,6 +12,10 @@ setup() {
 
   cat >"$TMPDIR/oc" <<'EOF'
 #!/bin/bash
+if [[ "${MOCK_OC_MODE:-}" == unreachable ]]; then
+  echo 'error: context "crc-admin" does not exist' >&2
+  exit 1
+fi
 if [[ "$*" != *"-o json"* ]]; then
   exit 0
 fi
@@ -136,4 +140,14 @@ teardown() {
   run bash "$SCRIPT"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Ready status unknown" ]]
+}
+
+@test "reports the last oc error when the cluster never becomes accessible" {
+  export MOCK_OC_MODE=unreachable
+
+  run bash "$SCRIPT"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Timeout reached: Cluster not accessible after 10s"* ]]
+  [[ "$output" == *'Last oc error: error: context "crc-admin" does not exist'* ]]
 }

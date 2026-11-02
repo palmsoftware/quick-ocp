@@ -286,6 +286,14 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 - If every attempt fails with the same error, it's likely a resource issue (see OOM and disk sections above).
 - If the error mentions `kubeconfig` or `pull secret`, these are typically transient and resolve on retry.
 
+### Missing kubeconfig contexts after CRC start
+
+**Symptom:** `crc start` reports `Started the OpenShift cluster`, but its log also contains `level=error msg="Cannot update kubeconfig: ..."` (for example an `EOF` from `oauth-openshift.apps-crc.testing`), and `oc` commands fail.
+
+**Cause:** CRC adds the `crc-admin` and `crc-developer` contexts to `~/.kube/config` by logging in through the cluster's OAuth route. If that route isn't ready yet, CRC logs the error and still exits successfully, leaving no working context.
+
+**What the action does:** the **Ensure kubeconfig contexts** step checks `crc-admin`. If it's missing or rejected, the step recreates both contexts with the same OAuth logins, trusting the API server CA from `~/.crc/machines/crc/kubeconfig` and the ingress router CA, and retries for up to 10 minutes while the OAuth route settles. If the route never becomes ready, the step fails and prints node and `authentication`/`ingress` operator state from CRC's admin kubeconfig.
+
 ### CRC Setup Failures
 
 **Symptom:** The `Run setup` step fails after retries with bundle download or uncompression errors.

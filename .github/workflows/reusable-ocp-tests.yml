@@ -134,6 +134,19 @@ jobs:
           echo "=== Imagestream details ==="
           oc get imagestream nginx -n openshift -o yaml
 
+      # Exercises the kubeconfig recovery path against a real cluster: drop the
+      # contexts crc start would have failed to write, then recreate them.
+      - name: Verify kubeconfig recovery when crc contexts are missing
+        run: |
+          oc config delete-context crc-admin
+          oc config delete-context crc-developer
+          ./scripts/ensure-kubeconfig.sh
+          test "$(oc config current-context)" = crc-admin
+          # kubeadmin reports as kube:admin or kubeadmin depending on the OCP version.
+          oc --context crc-admin whoami | grep -qxE 'kube:admin|kubeadmin'
+          test "$(oc --context crc-developer whoami)" = developer
+          oc get nodes
+
   # Deterministic coverage of the Quay image cache pre-seed. bundleCache:
   # false forces the GitHub bundle cache to miss on every run, so the
   # enabled cell always exercises the pre-seed path; the disabled cell
