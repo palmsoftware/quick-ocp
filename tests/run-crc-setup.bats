@@ -29,6 +29,26 @@ case "${1:-}" in
     setup_count=$(cat "$TEST_CRC_SETUP_COUNT")
     setup_count=$((setup_count + 1))
     printf '%s\n' "$setup_count" >"$TEST_CRC_SETUP_COUNT"
+    # TEST_CRC_SETUP_HANG=1: simulate a stalled mirror download — write a
+    # partial bundle, then block without further progress until killed.
+    if [[ -n "${TEST_CRC_SETUP_HANG:-}" ]]; then
+      mkdir -p "$HOME/.crc/cache"
+      printf 'partial download' >"$HOME/.crc/cache/crc_libvirt_4.20.5_amd64.crcbundle"
+      /bin/sleep 30 &
+      trap 'kill $! 2>/dev/null; exit 143' TERM
+      wait
+      exit 0
+    fi
+    # TEST_CRC_SETUP_SLOW_N=N: a slow but progressing download — grow the
+    # bundle once per second for N seconds, then succeed.
+    if [[ -n "${TEST_CRC_SETUP_SLOW_N:-}" ]]; then
+      mkdir -p "$HOME/.crc/cache"
+      for ((i = 0; i < TEST_CRC_SETUP_SLOW_N; i++)); do
+        head -c 65536 /dev/zero >>"$HOME/.crc/cache/crc_libvirt_4.20.5_amd64.crcbundle"
+        /bin/sleep 1
+      done
+      exit 0
+    fi
     if [[ -n "${TEST_CRC_SETUP_FAIL_N:-}" ]] && ((setup_count <= TEST_CRC_SETUP_FAIL_N)); then
       echo "simulated setup failure" >&2
       exit 1
@@ -70,6 +90,7 @@ EOF
 }
 
 teardown() {
+  pkill -f "$TEST_ROOT/bin/crc setup" 2>/dev/null || true
   rm -f /tmp/crc-setup-attempt-*.log /tmp/crc-start-attempt-*.log
   rm -rf "$TEST_ROOT"
 }
@@ -158,4 +179,68 @@ teardown() {
   [[ "$output" == *"Last 80 lines of /tmp/crc-setup-attempt-3.log"* ]]
   [[ "$output" == *"CRC cache contents"* ]]
   [[ "$output" == *"libvirt Logs"* ]]
+}
+
+@test "kills a stalled crc setup, removes the partial bundle, and fails without retrying" {
+  secret_file="$TEST_ROOT/pull-secret.json"
+  printf '{"auths":{"example.com":{"auth":"secret"}}}' >"$secret_file"
+  export PULL_SECRET_FILE="$secret_file"
+  export USER="$(id -un)"
+  export TEST_CRC_SETUP_HANG=1
+  export CRC_SETUP_STALL_TIMEOUT=2
+  export CRC_SETUP_STALL_POLL=1
+
+  run env HOME="$TEST_ROOT/home" bash "$SCRIPT"
+
+  [ "$status" -eq 1 ]
+  [ "$(cat "$TEST_CRC_SETUP_COUNT")" -eq 1 ]
+  [ "$(cat "$TEST_CRC_START_COUNT")" -eq 0 ]
+  [[ "$output" == *"crc setup made no progress for 2s"* ]]
+  [[ "$output" == *"CRC setup stalled on attempt 1 of 3"* ]]
+  [[ "$output" == *"Removing partial bundle crc_libvirt_4.20.5_amd64.crcbundle left by the stalled setup"* ]]
+  [ ! -e "$TEST_ROOT/home/.crc/cache/crc_libvirt_4.20.5_amd64.crcbundle" ]
+  run pgrep -f "$TEST_ROOT/bin/crc setup"
+  [ "$status" -ne 0 ]
+}
+
+@test "keeps a bundle that existed before a stalled crc setup" {
+  secret_file="$TEST_ROOT/pull-secret.json"
+  printf '{"auths":{"example.com":{"auth":"secret"}}}' >"$secret_file"
+  export PULL_SECRET_FILE="$secret_file"
+  export USER="$(id -un)"
+  export TEST_CRC_SETUP_HANG=1
+  export CRC_SETUP_STALL_TIMEOUT=2
+  export CRC_SETUP_STALL_POLL=1
+
+  mkdir -p "$TEST_ROOT/home/.crc/cache/tmp-extract"
+  dd if=/dev/zero of="$TEST_ROOT/home/.crc/cache/crc_libvirt_4.18.2_amd64.crcbundle" bs=1048576 count=0 seek=2048 2>/dev/null
+
+  run env HOME="$TEST_ROOT/home" bash "$SCRIPT"
+
+  [ "$status" -eq 1 ]
+  [ -e "$TEST_ROOT/home/.crc/cache/crc_libvirt_4.18.2_amd64.crcbundle" ]
+  [ ! -e "$TEST_ROOT/home/.crc/cache/crc_libvirt_4.20.5_amd64.crcbundle" ]
+  [ ! -e "$TEST_ROOT/home/.crc/cache/tmp-extract" ]
+}
+
+@test "does not kill a slow but progressing download through a symlinked cache dir" {
+  secret_file="$TEST_ROOT/pull-secret.json"
+  printf '{"auths":{"example.com":{"auth":"secret"}}}' >"$secret_file"
+  export PULL_SECRET_FILE="$secret_file"
+  export USER="$(id -un)"
+  export TEST_CRC_SETUP_SLOW_N=5
+  # Well above the 1s growth interval: $SECONDS has whole-second granularity.
+  export CRC_SETUP_STALL_TIMEOUT=4
+  export CRC_SETUP_STALL_POLL=1
+
+  # Mirrors setup-crc-cache-larger-disk.sh: ~/.crc/cache -> /mnt/crc-cache
+  mkdir -p "$TEST_ROOT/mnt-crc-cache" "$TEST_ROOT/home/.crc"
+  ln -s "$TEST_ROOT/mnt-crc-cache" "$TEST_ROOT/home/.crc/cache"
+
+  run env HOME="$TEST_ROOT/home" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_CRC_SETUP_COUNT")" -eq 1 ]
+  [[ "$output" != *"made no progress"* ]]
+  [ -e "$TEST_ROOT/mnt-crc-cache/crc_libvirt_4.20.5_amd64.crcbundle" ]
 }
