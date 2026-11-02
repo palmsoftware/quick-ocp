@@ -1,11 +1,19 @@
 ---
 name: Test Changes
 
+# Docs-only changes skip the full suite. paths-ignore only skips when every
+# changed file matches, so a PR that touches any non-Markdown file still runs
+# everything. Safe because no status check from this workflow is required by
+# the main ruleset (a required check would stay pending forever when skipped).
 'on':
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
 
 permissions: read-all
 

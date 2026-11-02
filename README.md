@@ -113,7 +113,7 @@ with:
   desiredOCPVersion: 4.18
 ```
 
-- The default is `latest`, which will use the most recent supported version. If you leave `desiredOCPVersion` blank, you will get the latest version.
+- The default is `latest`, which will use the most recent supported version. If you omit `desiredOCPVersion`, you will get the latest version. An explicitly empty value (`desiredOCPVersion: ''`) is rejected.
 - Supported values are `4.18`, `4.20` and later, and `latest`.
 - `4.19` is deprecated and accepted as an alias for `4.20`. The action emits a GitHub Actions warning and continues with `4.20`; any `crcVersion` override supplied with `4.19` is ignored.
 
@@ -194,11 +194,13 @@ When the GitHub Actions bundle cache misses (the common case — the 10 GB repo 
 
 **Failure is always non-fatal:** any pre-seed problem (missing image, stale content, extraction failure) logs a warning and falls back to the normal `crc setup` mirror download. A pre-seed bug cannot fail your job.
 
+**Fallback after a setup failure:** if `crc setup` fails, including a stalled mirror download (see [CRC Setup Failures](#crc-setup-failures)), the **Pull bundle from image cache (fallback)** step pulls the same Quay image and setup runs once more. This happens even when `imageBundleCache` is `false`, because setup has already failed at that point.
+
 Limitations:
 - When the resolved version has no matching Quay image yet (e.g. `desiredOCPVersion: latest` moves to a brand-new minor before the cache repo builds its image), the pre-seed skips gracefully and the mirror download remains the path.
 - Image freshness depends on the `palmsoftware/quick-ocp-cache` repo's weekly rebuilds. This repository's CI verifies each pinned image's content against the CRC version pins on every PR and nightly, so a stale image surfaces at CI time rather than at runtime.
 
-Set `imageBundleCache: false` to opt out (e.g., for restricted-network runners without Quay access).
+Set `imageBundleCache: false` to skip the pre-seed (e.g., for restricted-network runners without Quay access). This does not disable the fallback after a setup failure described above.
 
 ## Cluster Monitoring
 
@@ -273,7 +275,7 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 **Mitigations:**
 - The action uses [quick-cleanup](https://github.com/palmsoftware/quick-cleanup) in aggressive mode to free space before cluster creation and relocates Docker storage to the larger `/mnt` partition.
 - Use `bundleCache: true` — cached bundles are stored via GitHub Actions cache and extracted directly, avoiding a separate download.
-- The action prints a comprehensive disk space report at the end of each run. Look for the **Disk Space Report** step in the job output to see where space was consumed.
+- The action prints a comprehensive disk space report at the end of each run. Look for the **Comprehensive Disk Space Report** step in the job output to see where space was consumed.
 
 ### CRC Start Failures
 
@@ -296,12 +298,17 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 
 ### CRC Setup Failures
 
-**Symptom:** The `Run setup` step fails after retries with bundle download or uncompression errors.
+**Symptom:** The `Run setup` step fails after retries with bundle download or uncompression errors, or logs `crc setup made no progress for 300s` after a `Downloading bundle` line.
 
-**Cause:** `crc setup` downloads and uncompresses the ~5.7 GB CRC bundle; both stages can fail transiently. The action retries setup up to 3 times, removing partial (under 1 GiB) bundles and stale extraction directories between attempts, and on final failure prints the last attempt's log, cache contents, disk usage, and a libvirt journal tail.
+**Cause:** `crc setup` downloads and uncompresses the ~5.7 GB CRC bundle; both stages can fail transiently. The action handles two failure modes:
+- **Errors:** setup is retried up to 3 times, removing partial (under 1 GiB) bundles and stale extraction directories between attempts.
+- **Stalls:** a hung download never exits on its own. A watchdog kills `crc setup` once `~/.crc/cache` has not grown for 300 seconds, removes the partial bundle, and fails without retrying the mirror.
+
+Either way, the final failure prints the last attempt's log, cache contents, disk usage, and a libvirt journal tail. The **Pull bundle from image cache (fallback)** step then pulls the bundle from Quay, and **Retry setup after bundle recovery** runs setup again.
 
 **What to check:**
 - Expand the **CRC Setup and Start** group in the job log — each attempt writes `/tmp/crc-setup-attempt-<n>.log` and the final failure dumps the last 80 lines.
+- If the fallback step also fails, the Quay image for that OCP version is missing or stale and the mirror is the only source left.
 - Check the `Bundle Pre-seed` row in the job summary: `skipped-stale` or `skipped-unavailable` means the Quay image cache could not supply the bundle and the mirror download was used.
 - Repeated identical failures across attempts usually indicate a mirror outage or disk pressure (see Disk Space Exhaustion above).
 

@@ -16,6 +16,17 @@ make lint
 
 # Auto-fix shell script formatting
 make fix-lint
+
+# Run BATS unit tests (requires bats)
+make test
+
+# Check that Quay cache images exist for each pinned OCP version (manifest lookups only)
+make check-image-cache
+
+# Verify Quay cache image content matches the CRC version pins.
+# Linux-only (downloads the pinned crc binary); pulls each ~6 GB image in turn.
+# CI runs this on every PR and nightly.
+make verify-image-cache
 ```
 
 ## Key Files
@@ -26,6 +37,7 @@ make fix-lint
 | `crc-version-pins.json` | Maps OCP versions to CRC versions; documents known issues |
 | `.github/workflows/reusable-ocp-tests.yml` | CI matrix and workflow examples |
 | `scripts/` | Modular shell scripts called from `action.yml` |
+| `tests/` | BATS unit tests for the scripts (`make test`) |
 
 ## Version Selection
 
@@ -52,6 +64,7 @@ Tested on `ubuntu-22.04`, `ubuntu-24.04`, and `ubuntu-26.04`.
 
 - **OpenShift Mirror** (`mirror.openshift.com`) — CRC binary and bundle downloads (required).
 - **GitHub API** — CRC version auto-detection (optional; non-fatal connectivity check).
+- **Quay** (`quay.io/bapalm/quick-ocp-cache`) — CRC bundle image cache for the pre-seed and post-failure fallback (optional; failures degrade to the mirror).
 
 ## Usage
 
@@ -85,3 +98,4 @@ never fast-forwardable from a clone. A plain `git fetch --tags` therefore fails 
 5. **Connectivity check**: Validates OpenShift Mirror reachability; GitHub API check is non-fatal.
 6. **Stalled bundle download**: `run-crc-setup.sh` kills `crc setup` after 300s with no growth in `~/.crc/cache` (`CRC_SETUP_STALL_TIMEOUT`), removes the partial bundle, and fails without retrying the mirror so the Quay image cache fallback runs.
 7. **Missing kubeconfig contexts**: `crc start` can log `Cannot update kubeconfig` (OAuth route not ready) and still exit 0. `ensure-kubeconfig.sh` recreates `crc-admin`/`crc-developer` with OAuth logins (retried up to 600s, `ENSURE_KUBECONFIG_TIMEOUT`) before the node-ready wait.
+8. **Docs-only PRs**: `pre-main.yml` uses `paths-ignore: **.md`, so a PR that changes only Markdown runs no Test Changes jobs (CodeQL still runs). If a check from that workflow is ever made required in the `main` ruleset, switch to a job-level change filter so skipped runs still report.
