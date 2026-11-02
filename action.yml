@@ -317,6 +317,10 @@ runs:
       shell: bash
       run: echo "start_time=$(date +%s)" >>"${GITHUB_OUTPUT}"
 
+    # run-crc-setup.sh kills crc setup when the bundle download/extract makes
+    # no progress for CRC_SETUP_STALL_TIMEOUT (default 300s) and exits
+    # non-zero without retrying the mirror, so a hung download fails fast
+    # into the image cache fallback below instead of hitting the job timeout.
     - name: Run setup
       id: crc-setup
       continue-on-error: true

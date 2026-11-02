@@ -15,17 +15,114 @@ echo "=== Running CRC setup ==="
 # phase of deployment (mirror flakiness, partial downloads dying on
 # uncompress), so retry it like the crc start loop below. Setup is
 # idempotent; any nonzero exit is worth a retry.
+#
+# A download that hangs never exits, so a progress watchdog kills crc setup
+# when ~/.crc/cache stops growing (download or tmp-extract uncompress) for
+# CRC_SETUP_STALL_TIMEOUT seconds. A stall exits immediately instead of
+# retrying the mirror, so the action's Quay image cache fallback takes over
+# within the job budget.
 setup_max_attempts=3
 setup_attempt=1
+CRC_CACHE_DIR="$HOME/.crc/cache"
+STALL_TIMEOUT="${CRC_SETUP_STALL_TIMEOUT:-300}"
+STALL_POLL="${CRC_SETUP_STALL_POLL:-15}"
+
+cache_size_kb() {
+  local size
+  # Trailing slash: ~/.crc/cache is usually a symlink to /mnt/crc-cache
+  # (setup-crc-cache-larger-disk.sh) and du must measure the target.
+  size=$(du -sk "$CRC_CACHE_DIR/" 2>/dev/null | cut -f1) || true
+  echo "${size:-0}"
+}
+
+# Signals a process and all its descendants (subshell -> sudo/tee -> crc),
+# scoped to this setup run rather than matching command lines.
+kill_tree() {
+  local child
+  for child in $(pgrep -P "$1" 2>/dev/null); do
+    kill_tree "$child"
+  done
+  kill -TERM "$1" 2>/dev/null || true
+}
+
+# Runs crc setup under the stall watchdog. Sets setup_exit_code, and
+# setup_stalled when the watchdog killed it.
+run_setup_with_watchdog() {
+  local log="$1" pid size last_size last_change
+  setup_stalled=false
+  setup_exit_code=0
+
+  (sudo -su "$USER" crc setup --log-level debug --show-progressbars 2>&1 | tee "$log") &
+  pid=$!
+  last_size=$(cache_size_kb)
+  last_change=$SECONDS
+
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep "$STALL_POLL"
+    size=$(cache_size_kb)
+    if [ "$size" != "$last_size" ]; then
+      last_size=$size
+      last_change=$SECONDS
+    elif [ $((SECONDS - last_change)) -ge "$STALL_TIMEOUT" ]; then
+      setup_stalled=true
+      echo "::warning::crc setup made no progress for ${STALL_TIMEOUT}s (bundle download/extract stalled) — killing it"
+      kill_tree "$pid"
+      break
+    fi
+  done
+
+  # A setup that exits 0 while being killed still counts as success.
+  wait "$pid" || setup_exit_code=$?
+}
+
+dump_setup_diagnostics() {
+  local log="$1"
+  echo ""
+  echo "=== Last 80 lines of ${log} ==="
+  tail -n 80 "$log" || true
+  echo ""
+  echo "=== CRC cache contents ==="
+  ls -la "$CRC_CACHE_DIR" 2>/dev/null || true
+  echo ""
+  echo "=== Disk usage ==="
+  df -h || true
+  echo ""
+  echo "=== libvirt Logs (last 30 lines) ==="
+  sudo journalctl -u "libvirtd*" --no-pager -n 30 2>/dev/null || true
+}
 
 while [ $setup_attempt -le $setup_max_attempts ]; do
   echo "=== CRC setup attempt $setup_attempt of $setup_max_attempts ==="
 
-  setup_exit_code=0
+  # Bundles present before this attempt (e.g. a GitHub cache hit) are
+  # presumed complete; anything new after a stall is a partial download.
+  preexisting_bundles=""
+  for bundle in "$CRC_CACHE_DIR"/*.crcbundle; do
+    if [ -e "$bundle" ]; then
+      preexisting_bundles+="${bundle}"$'\n'
+    fi
+  done
+
   setup_log="/tmp/crc-setup-attempt-${setup_attempt}.log"
-  sudo -su "$USER" crc setup --log-level debug --show-progressbars 2>&1 | tee "$setup_log" || setup_exit_code=$?
+  run_setup_with_watchdog "$setup_log"
   if [ $setup_exit_code -eq 0 ]; then
     break
+  fi
+
+  if [ "$setup_stalled" = true ]; then
+    # Remove the partial download so the Quay fallback does not mistake it
+    # for a usable bundle (it skips when any .crcbundle is present).
+    for bundle in "$CRC_CACHE_DIR"/*.crcbundle; do
+      [ -e "$bundle" ] || continue
+      if ! grep -Fxq -- "$bundle" <<<"$preexisting_bundles"; then
+        echo "Removing partial bundle $(basename "$bundle") left by the stalled setup"
+        rm -f "$bundle"
+      fi
+    done
+    rm -rf "$CRC_CACHE_DIR/tmp-extract"
+    echo "ERROR: CRC setup stalled on attempt $setup_attempt of $setup_max_attempts — not retrying the mirror; deferring to the image cache fallback"
+    dump_setup_diagnostics "$setup_log"
+    exit 1
   fi
 
   echo "WARNING: CRC setup failed with exit code $setup_exit_code (attempt $setup_attempt of $setup_max_attempts)"
@@ -34,7 +131,7 @@ while [ $setup_attempt -le $setup_max_attempts ]; do
     # A partially downloaded or partially uncompressed bundle makes the next
     # attempt fail the same way, so remove any undersized bundle and the
     # mid-extraction directory crc leaves behind.
-    for bundle in "$HOME/.crc/cache"/*.crcbundle; do
+    for bundle in "$CRC_CACHE_DIR"/*.crcbundle; do
       [ -e "$bundle" ] || continue
       file_size=$(stat --format='%s' "$bundle" 2>/dev/null || stat -f '%z' "$bundle" 2>/dev/null || echo 0)
       if [ "$file_size" -lt $((1024 * 1024 * 1024)) ]; then
@@ -42,7 +139,7 @@ while [ $setup_attempt -le $setup_max_attempts ]; do
         rm -f "$bundle"
       fi
     done
-    rm -rf "$HOME/.crc/cache/tmp-extract"
+    rm -rf "$CRC_CACHE_DIR/tmp-extract"
     sudo -su "$USER" crc stop || true
     sleep 10
     setup_attempt=$((setup_attempt + 1))
@@ -50,18 +147,7 @@ while [ $setup_attempt -le $setup_max_attempts ]; do
   fi
 
   echo "ERROR: CRC setup failed (exit code $setup_exit_code) on attempt $setup_attempt of $setup_max_attempts"
-  echo ""
-  echo "=== Last 80 lines of ${setup_log} ==="
-  tail -n 80 "$setup_log" || true
-  echo ""
-  echo "=== CRC cache contents ==="
-  ls -la "$HOME/.crc/cache" 2>/dev/null || true
-  echo ""
-  echo "=== Disk usage ==="
-  df -h || true
-  echo ""
-  echo "=== libvirt Logs (last 30 lines) ==="
-  sudo journalctl -u "libvirtd*" --no-pager -n 30 2>/dev/null || true
+  dump_setup_diagnostics "$setup_log"
   exit 1
 done
 
