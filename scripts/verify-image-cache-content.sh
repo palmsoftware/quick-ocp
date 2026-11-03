@@ -116,10 +116,33 @@ EXPECTED_BUNDLE_NAME="crc_libvirt_${EXPECTED_Z}_${ARCH}.crcbundle"
 echo "crc ${PINNED_CRC} embeds OpenShift ${EXPECTED_Z} → expected bundle: ${EXPECTED_BUNDLE_NAME}"
 
 # --- 3. Pull the image and read its metadata ---
-if ! docker pull --platform "linux/${ARCH}" "${IMAGE_TAG}"; then
-  echo "::error::Failed to pull ${IMAGE_TAG}. Rebuild it via workflow_dispatch on palmsoftware/quick-ocp-cache."
-  exit 1
-fi
+# A failed pull has three causes worth telling apart: a runner that ran out of
+# disk (retrying is pointless), a transient registry or network error such as
+# "unexpected EOF" (retrying usually works), and a genuinely bad tag.
+PULL_LOG="${WORK_DIR}/docker-pull.log"
+PULL_ATTEMPTS="${PULL_ATTEMPTS:-3}"
+PULL_RETRY_DELAY="${PULL_RETRY_DELAY:-10}"
+attempt=1
+while :; do
+  if docker pull --platform "linux/${ARCH}" "${IMAGE_TAG}" 2>&1 | tee "${PULL_LOG}"; then
+    break
+  fi
+
+  if grep -qi "no space left on device" "${PULL_LOG}"; then
+    AVAILABLE=$(df -h / | awk 'NR==2 {print $4}')
+    echo "::error::Pulling ${IMAGE_TAG} exhausted the runner's disk (${AVAILABLE} free on /). The image is fine — free space before pulling instead of rebuilding it."
+    exit 1
+  fi
+
+  if [ "${attempt}" -ge "${PULL_ATTEMPTS}" ]; then
+    echo "::error::Failed to pull ${IMAGE_TAG} after ${PULL_ATTEMPTS} attempts. Rebuild it via workflow_dispatch on palmsoftware/quick-ocp-cache."
+    exit 1
+  fi
+
+  echo "::warning::Pull attempt ${attempt}/${PULL_ATTEMPTS} of ${IMAGE_TAG} failed; retrying in ${PULL_RETRY_DELAY}s"
+  sleep "${PULL_RETRY_DELAY}"
+  attempt=$((attempt + 1))
+done
 if ! CONTAINER_ID=$(docker create --platform "linux/${ARCH}" "${IMAGE_TAG}"); then
   echo "::error::Failed to create a container from ${IMAGE_TAG}. Rebuild it via workflow_dispatch on palmsoftware/quick-ocp-cache."
   exit 1
