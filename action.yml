@@ -401,6 +401,13 @@ runs:
         ${{ github.action_path }}/scripts/bootstrap-oc-kubectl.sh "${{ steps.ocp_version_lookup.outputs.ocp_version }}" "${{ github.action_path }}"
         echo "::endgroup::"
 
+    # crc start can log "Cannot update kubeconfig" and still exit 0, leaving
+    # ~/.kube/config without a working context; recreate crc-admin and
+    # crc-developer before anything uses oc.
+    - name: Ensure kubeconfig contexts
+      shell: bash
+      run: ${{ github.action_path }}/scripts/ensure-kubeconfig.sh
+
     - name: Wait until node is Ready state
       shell: bash
       run: |

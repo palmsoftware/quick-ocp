@@ -15,12 +15,14 @@ curl -sk --connect-timeout 5 https://api.crc.testing:6443 2>&1 | head -3 || true
 
 # Wait for cluster to be ready and accessible
 echo "Waiting for cluster to be accessible..."
-while ! oc get nodes --request-timeout='30s' &>/dev/null; do
+# Keep the last oc error so a timeout says why the cluster was unreachable.
+while ! oc_error=$(oc get nodes --request-timeout='30s' 2>&1 >/dev/null); do
   echo "Cluster not yet accessible, waiting... (${elapsed}s/${timeout}s)"
   sleep $interval
   elapsed=$((elapsed + interval))
   if [ "$elapsed" -ge "$timeout" ]; then
     echo "Timeout reached: Cluster not accessible after ${timeout}s"
+    echo "Last oc error: ${oc_error:-<none>}"
     echo ""
     echo "=== CRC Status ==="
     crc status 2>&1 || true

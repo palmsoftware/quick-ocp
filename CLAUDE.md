@@ -84,3 +84,4 @@ never fast-forwardable from a clone. A plain `git fetch --tags` therefore fails 
 4. **Disk space**: CRC needs ~25 GB free; action runs quick-cleanup in aggressive mode before setup.
 5. **Connectivity check**: Validates OpenShift Mirror reachability; GitHub API check is non-fatal.
 6. **Stalled bundle download**: `run-crc-setup.sh` kills `crc setup` after 300s with no growth in `~/.crc/cache` (`CRC_SETUP_STALL_TIMEOUT`), removes the partial bundle, and fails without retrying the mirror so the Quay image cache fallback runs.
+7. **Missing kubeconfig contexts**: `crc start` can log `Cannot update kubeconfig` (OAuth route not ready) and still exit 0. `ensure-kubeconfig.sh` recreates `crc-admin`/`crc-developer` with OAuth logins (retried up to 600s, `ENSURE_KUBECONFIG_TIMEOUT`) before the node-ready wait.
