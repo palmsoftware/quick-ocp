@@ -3,38 +3,69 @@ set -e
 
 echo "=== Checking connectivity to required external services ==="
 
+# Retries use exponential backoff (5s, 10s, 20s, ... by default) so a brief
+# outage or a rate-limited response does not fail the job.
+CONNECTIVITY_RETRIES="${CONNECTIVITY_RETRIES:-5}"
+CONNECTIVITY_RETRY_DELAY="${CONNECTIVITY_RETRY_DELAY:-5}"
+
 # Track if any checks fail
 CONNECTIVITY_OK=true
 FAILED_SERVICES=()
 
-# Function to check connectivity to a service
+# probe <url> <timeout>: HEAD request, following redirects. On failure, sets
+# PROBE_ERROR to the HTTP status or curl error so the log says why.
+PROBE_ERROR=""
+probe() {
+  local url="$1" timeout="$2" http_code rc=0
+  http_code=$(curl -sS -L -I -o /dev/null -w '%{http_code}' \
+    --connect-timeout "$timeout" --max-time "$timeout" "$url" 2>"$PROBE_ERR_FILE") || rc=$?
+  if [ "$rc" -eq 0 ] && [[ "$http_code" =~ ^[23] ]]; then
+    return 0
+  fi
+  if [ "$rc" -ne 0 ]; then
+    PROBE_ERROR="curl exit $rc: $(tr '\n' ' ' <"$PROBE_ERR_FILE" | sed 's/ *$//')"
+  else
+    PROBE_ERROR="HTTP $http_code"
+  fi
+  return 1
+}
+
+PROBE_ERR_FILE=$(mktemp)
+trap 'rm -f "$PROBE_ERR_FILE"' EXIT
+
+# check_with_retries <url> <timeout>
+check_with_retries() {
+  local url="$1" timeout="$2"
+  local attempt delay="$CONNECTIVITY_RETRY_DELAY"
+  for attempt in $(seq 1 "$CONNECTIVITY_RETRIES"); do
+    if probe "$url" "$timeout"; then
+      echo "✓ OK"
+      return 0
+    fi
+    echo ""
+    echo "  attempt $attempt/$CONNECTIVITY_RETRIES failed ($PROBE_ERROR)"
+    if [ "$attempt" -lt "$CONNECTIVITY_RETRIES" ]; then
+      echo -n "  retrying in ${delay}s... "
+      sleep "$delay"
+      delay=$((delay * 2))
+    fi
+  done
+  return 1
+}
+
+# Function to check connectivity to a required service
 check_service() {
   local service_name="$1"
   local url="$2"
   local timeout="${3:-10}"
 
   echo -n "Checking $service_name... "
-
-  # Use curl with timeout and follow redirects
-  # -s: silent, -f: fail on HTTP errors, -L: follow redirects, -I: HEAD request only
-  # --max-time: maximum time for the operation
-  # --connect-timeout: maximum time for connection
-  local max_retries=3
-  local attempt
-  for attempt in $(seq 1 $max_retries); do
-    if curl -s -f -L -I --connect-timeout "$timeout" --max-time "$timeout" "$url" >/dev/null 2>&1; then
-      echo "✓ OK"
-      return 0
-    fi
-    if [ "$attempt" -lt "$max_retries" ]; then
-      echo -n "retry $((attempt + 1))/$max_retries... "
-      sleep 5
-    fi
-  done
+  if check_with_retries "$url" "$timeout"; then
+    return 0
+  fi
   echo "✗ FAILED"
   CONNECTIVITY_OK=false
-  FAILED_SERVICES+=("$service_name")
-  return 1
+  FAILED_SERVICES+=("$service_name ($url): $PROBE_ERROR")
 }
 
 # Non-fatal connectivity check (warns but does not fail the script)
@@ -44,21 +75,11 @@ check_optional_service() {
   local timeout="${3:-10}"
 
   echo -n "Checking $service_name (optional)... "
-
-  local max_retries=5
-  local attempt
-  for attempt in $(seq 1 $max_retries); do
-    if curl -s -f -L -I --connect-timeout "$timeout" --max-time "$timeout" "$url" >/dev/null 2>&1; then
-      echo "✓ OK"
-      return 0
-    fi
-    if [ "$attempt" -lt "$max_retries" ]; then
-      echo -n "retry $((attempt + 1))/$max_retries... "
-      sleep 5
-    fi
-  done
+  if check_with_retries "$url" "$timeout"; then
+    return 0
+  fi
   echo "✗ FAILED (non-fatal, continuing)"
-  return 0
+  echo "::warning::$service_name is unreachable ($PROBE_ERROR); continuing"
 }
 
 # Check OpenShift Mirror (primary dependency for CRC download)
@@ -81,6 +102,7 @@ else
   echo "The following services could not be reached:"
   for service in "${FAILED_SERVICES[@]}"; do
     echo "  - $service"
+    echo "::error::Cannot reach $service"
   done
   echo ""
   echo "This action requires internet access to external services."

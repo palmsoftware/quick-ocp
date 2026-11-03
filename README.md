@@ -29,7 +29,7 @@ This action is tested on the following GitHub Actions runners:
 
 This action requires network access to the **OpenShift Mirror** (`https://mirror.openshift.com`) for downloading CRC binaries and OpenShift client tools.
 
-The action includes an automatic connectivity check that runs at the beginning of each workflow. It verifies reachability of the OpenShift Mirror (required) and the GitHub API (optional, non-fatal). If the OpenShift Mirror is unreachable, the action will fail gracefully with a clear error message.
+The action includes an automatic connectivity check that runs at the beginning of each workflow. It verifies reachability of the OpenShift Mirror (required) and the GitHub API (optional, non-fatal). Each check retries 5 times with exponential backoff (5s, 10s, 20s, 40s) to ride out brief outages. If the OpenShift Mirror is still unreachable, the action fails with the HTTP status or curl error from the last attempt.
 
 You can disable this check by setting `disableConnectivityCheck: true` in your workflow:
 
@@ -321,6 +321,8 @@ Lines starting with `#` and blank lines are ignored, so you can comment your ima
 **Symptom:** The job fails at the `Check connectivity to required services` step.
 
 **Cause:** The OpenShift Mirror (`mirror.openshift.com`) is unreachable. This can happen during Red Hat maintenance windows.
+
+The error line names the reason from the last attempt, for example `HTTP 503` (mirror-side outage or maintenance) or `curl exit 6` (DNS resolution failure on the runner).
 
 **What to check:**
 - Check [Red Hat Status](https://status.redhat.com/) for ongoing incidents.
