@@ -30,6 +30,15 @@ case "$1" in
       echo "failed to register layer: write /cache/bundle.tar: no space left on device" >&2
       exit 1
     fi
+    # Fail only the first N pulls, then succeed: exercises the retry loop.
+    if [ -n "${MOCK_DOCKER_PULL_FLAKY:-}" ] && [ -f "$TEST_ROOT/pull-flaky-count" ]; then
+      remaining=$(cat "$TEST_ROOT/pull-flaky-count")
+      if [ "$remaining" -gt 0 ]; then
+        echo $((remaining - 1)) >"$TEST_ROOT/pull-flaky-count"
+        echo "unexpected EOF" >&2
+        exit 1
+      fi
+    fi
     if [ "${MOCK_DOCKER_PULL_ERROR:-0}" = "1" ]; then
       echo "Error response from daemon: manifest unknown" >&2
       exit 1
@@ -135,14 +144,28 @@ run_verify() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"exhausted the runner's disk"* ]]
   [[ "$output" != *"Rebuild it via workflow_dispatch"* ]]
+  # Disk exhaustion cannot be retried away, so it must not enter the loop.
+  [[ "$output" != *"Pull attempt"* ]]
 }
 
-@test "still points at the image for a pull failure that is not disk related" {
+@test "retries a transient pull failure and then succeeds" {
+  write_metadata 4.20 amd64 2.57.0 crc_libvirt_4.20.5_amd64.crcbundle 5900000000
+  echo 1 >"$TEST_ROOT/pull-flaky-count"
+
+  run_verify MOCK_DOCKER_PULL_FLAKY=1 PULL_RETRY_DELAY=0
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Pull attempt 1/3 of ${IMAGE_TAG} failed"* ]]
+  [[ "$output" == *"matches the runtime contract"* ]]
+}
+
+@test "points at the image after every pull attempt fails" {
   write_metadata 4.20 amd64 2.57.0 crc_libvirt_4.20.5_amd64.crcbundle 5900000000
 
-  run_verify MOCK_DOCKER_PULL_ERROR=1
+  run_verify MOCK_DOCKER_PULL_ERROR=1 PULL_RETRY_DELAY=0
 
   [ "$status" -eq 1 ]
+  [[ "$output" == *"Failed to pull ${IMAGE_TAG} after 3 attempts"* ]]
   [[ "$output" == *"Rebuild it via workflow_dispatch"* ]]
   [[ "$output" != *"exhausted the runner's disk"* ]]
 }
