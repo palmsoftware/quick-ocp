@@ -37,7 +37,7 @@ if [ -n "$DEPRECATED_VERSION" ]; then
 fi
 
 if [ "$EFFECTIVE_VERSION" != "latest" ] && [[ ! "$EFFECTIVE_VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
-  gha_error "Invalid desiredOCPVersion: '$REQUESTED_VERSION'. Supported values are 4.18, 4.20 and later, or 'latest'."
+  gha_error "Invalid desiredOCPVersion: '$REQUESTED_VERSION'. Supported values are 4.20 and later, or 'latest'."
   exit 1
 fi
 
