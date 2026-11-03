@@ -61,7 +61,7 @@ steps:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `ocpPullSecret` | Pull secret for OpenShift Local | Yes | — |
-| `desiredOCPVersion` | OpenShift version to deploy (`4.18`, `4.20` or later, or `latest`; `4.19` is a deprecated alias for `4.20`) | No | `latest` |
+| `desiredOCPVersion` | OpenShift version to deploy (`4.20` or later, or `latest`; `4.18` and `4.19` are deprecated aliases for `4.20`) | No | `latest` |
 | `crcVersion` | Specific CRC version to use (overrides version detection and pinning) | No | — |
 | `bundleCache` | Cache the CRC bundles for faster startup | No | `false` |
 | `imageBundleCache` | Pre-seed the CRC bundle from the Quay image cache before setup, avoiding the OpenShift mirror on bundle-cache misses | No | `true` |
@@ -110,12 +110,12 @@ You can control which OpenShift version is deployed by setting the `desiredOCPVe
 
 ```yaml
 with:
-  desiredOCPVersion: 4.18
+  desiredOCPVersion: 4.20
 ```
 
 - The default is `latest`, which will use the most recent supported version. If you omit `desiredOCPVersion`, you will get the latest version. An explicitly empty value (`desiredOCPVersion: ''`) is rejected.
-- Supported values are `4.18`, `4.20` and later, and `latest`.
-- `4.19` is deprecated and accepted as an alias for `4.20`. The action emits a GitHub Actions warning and continues with `4.20`; any `crcVersion` override supplied with `4.19` is ignored.
+- Supported values are `4.20` and later, and `latest`.
+- `4.18` and `4.19` are deprecated and accepted as aliases for `4.20`. The action emits a GitHub Actions warning and continues with `4.20`; any `crcVersion` override supplied with them is ignored.
 
 **Note:** YAML parsers interpret `4.20` as a floating-point number and convert it to `4.2`. The action automatically normalizes this back to `4.20`, so you don't need to quote version numbers in your workflow files.
 
@@ -128,7 +128,7 @@ For more details, see [action.yml](action.yml) and the [reusable workflow exampl
 To ensure stability and avoid issues with specific CRC releases, this action uses a version pinning mechanism. The `crc-version-pins.json` file maps OCP versions to specific known-good CRC versions.
 
 **How it works:**
-1. Deprecated OCP version aliases are resolved first (currently, `4.19` maps to `4.20`)
+1. Deprecated OCP version aliases are resolved first (currently, `4.18` and `4.19` map to `4.20`)
 2. The action checks `crc-version-pins.json` for the effective OCP version
 3. If a specific CRC version is pinned (not set to `"auto"`), that version is used
 4. If set to `"auto"`, the action queries the GitHub API for the latest CRC release supporting that OCP version
@@ -138,11 +138,11 @@ To ensure stability and avoid issues with specific CRC releases, this action use
 ```json
 {
   "deprecated_versions": {
+    "4.18": "4.20",
     "4.19": "4.20"
   },
   "version_pins": {
     "latest": "auto",
-    "4.18": "auto",
     "4.20": "auto",
     "4.21": "auto",
     "4.22": "auto"
@@ -159,7 +159,7 @@ To ensure stability and avoid issues with specific CRC releases, this action use
 }
 ```
 
-**Note:** Versions set to `"auto"` (latest, 4.18, 4.20, 4.21, 4.22) automatically fetch the latest compatible CRC version from GitHub API. The historical 4.19 certificate issue remains documented under `known_issues` for reference.
+**Note:** Versions set to `"auto"` (latest, 4.20, 4.21, 4.22) automatically fetch the latest compatible CRC version from GitHub API. The historical 4.19 certificate issue remains documented under `known_issues` for reference.
 
 ### Explicit CRC Version Override
 
@@ -176,7 +176,7 @@ This is useful for:
 - Working around newly discovered issues before pins are updated
 - Ensuring reproducibility in CI/CD pipelines
 
-For deprecated `desiredOCPVersion: 4.19`, the action maps the request to `4.20` and ignores `crcVersion` so it cannot select a 4.19 bundle.
+For deprecated `desiredOCPVersion` values (`4.18` and `4.19`), the action maps the request to `4.20` and ignores `crcVersion` so it cannot select a bundle for the deprecated version.
 
 **Priority order:**
 1. Explicit `crcVersion` input (highest priority, except for deprecated aliases)

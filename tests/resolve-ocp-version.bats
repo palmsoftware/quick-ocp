@@ -37,12 +37,20 @@ teardown() {
   grep -q "crc_version_override=2.99.0" "$GITHUB_OUTPUT"
 }
 
-@test "leaves OCP 4.18 unchanged" {
+@test "redirects deprecated OCP 4.18 to 4.20 with a warning" {
   run bash "$SCRIPT" "4.18" "$REPO_ROOT"
   [ "$status" -eq 0 ]
-  [[ ! "$output" =~ "Normalized" ]]
-  [[ ! "$output" =~ "::warning::" ]]
-  grep -q "effective_version=4.18" "$GITHUB_OUTPUT"
+  [[ "$output" =~ "::warning::desiredOCPVersion 4.18 is deprecated and will use 4.20." ]]
+  grep -q "effective_version=4.20" "$GITHUB_OUTPUT"
+  grep -q "crc_version_override=$" "$GITHUB_OUTPUT"
+}
+
+@test "ignores a CRC override for deprecated OCP 4.18" {
+  run env CRC_VERSION_OVERRIDE="2.54.0" bash "$SCRIPT" "4.18" "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "The crcVersion override was ignored." ]]
+  grep -q "effective_version=4.20" "$GITHUB_OUTPUT"
+  grep -q "crc_version_override=$" "$GITHUB_OUTPUT"
 }
 
 @test "normalizes YAML float 4.2 to 4.20" {

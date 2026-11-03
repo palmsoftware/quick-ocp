@@ -43,7 +43,7 @@ make verify-image-cache
 
 Priority for CRC version resolution:
 
-1. Resolve deprecated OCP version aliases from `crc-version-pins.json` (`4.19` maps to `4.20`)
+1. Resolve deprecated OCP version aliases from `crc-version-pins.json` (`4.18` and `4.19` map to `4.20`)
 2. For non-deprecated requests, use an explicit `crcVersion` input
 3. Pin in `crc-version-pins.json`
 4. Auto-detection via GitHub API (`"auto"` pins)
