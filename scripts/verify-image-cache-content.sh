@@ -116,8 +116,16 @@ EXPECTED_BUNDLE_NAME="crc_libvirt_${EXPECTED_Z}_${ARCH}.crcbundle"
 echo "crc ${PINNED_CRC} embeds OpenShift ${EXPECTED_Z} → expected bundle: ${EXPECTED_BUNDLE_NAME}"
 
 # --- 3. Pull the image and read its metadata ---
-if ! docker pull --platform "linux/${ARCH}" "${IMAGE_TAG}"; then
-  echo "::error::Failed to pull ${IMAGE_TAG}. Rebuild it via workflow_dispatch on palmsoftware/quick-ocp-cache."
+# Keep the pull's own output: a failed pull can be a bad tag or a runner that
+# ran out of disk, and only the output tells them apart.
+PULL_LOG="${WORK_DIR}/docker-pull.log"
+if ! docker pull --platform "linux/${ARCH}" "${IMAGE_TAG}" 2>&1 | tee "${PULL_LOG}"; then
+  if grep -qi "no space left on device" "${PULL_LOG}"; then
+    AVAILABLE=$(df -h / | awk 'NR==2 {print $4}')
+    echo "::error::Pulling ${IMAGE_TAG} exhausted the runner's disk (${AVAILABLE} free on /). The image is fine — free space before pulling instead of rebuilding it."
+  else
+    echo "::error::Failed to pull ${IMAGE_TAG}. Rebuild it via workflow_dispatch on palmsoftware/quick-ocp-cache."
+  fi
   exit 1
 fi
 if ! CONTAINER_ID=$(docker create --platform "linux/${ARCH}" "${IMAGE_TAG}"); then

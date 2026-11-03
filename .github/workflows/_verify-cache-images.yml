@@ -40,6 +40,15 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # Each verification pulls a ~6 GB image plus the crc binary, which a
+      # stock runner cannot always unpack. Matches the cleanup the composite
+      # action runs before installing a bundle.
+      - name: Free disk space
+        uses: palmsoftware/quick-cleanup@7265cfd58b2a08299d81b75bd66f12cb46ad8dec # v0
+        with:
+          cleanup-mode: aggressive
+          minimum-free-space: 25
+
       - name: Verify Quay cache image content for OCP ${{ matrix.version }} (${{ matrix.arch }})
         env:
           OCP_VERSION: ${{ matrix.version }}

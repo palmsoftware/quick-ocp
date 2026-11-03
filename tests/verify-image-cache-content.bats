@@ -25,7 +25,17 @@ case "$1" in
     [ "${MOCK_DOCKER_MANIFEST_FAIL:-0}" = "1" ] && exit 1
     exit 0
     ;;
-  pull) exit 0 ;;
+  pull)
+    if [ "${MOCK_DOCKER_PULL_FAIL:-0}" = "1" ]; then
+      echo "failed to register layer: write /cache/bundle.tar: no space left on device" >&2
+      exit 1
+    fi
+    if [ "${MOCK_DOCKER_PULL_ERROR:-0}" = "1" ]; then
+      echo "Error response from daemon: manifest unknown" >&2
+      exit 1
+    fi
+    exit 0
+    ;;
   create) echo mock-container ;;
   cp) cp "$TEST_ROOT/metadata.json" "$3" ;;
   rm | rmi) exit 0 ;;
@@ -115,6 +125,26 @@ run_verify() {
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"Missing cache image"* ]]
+}
+
+@test "blames the runner, not the image, when the pull runs out of disk" {
+  write_metadata 4.20 amd64 2.57.0 crc_libvirt_4.20.5_amd64.crcbundle 5900000000
+
+  run_verify MOCK_DOCKER_PULL_FAIL=1
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"exhausted the runner's disk"* ]]
+  [[ "$output" != *"Rebuild it via workflow_dispatch"* ]]
+}
+
+@test "still points at the image for a pull failure that is not disk related" {
+  write_metadata 4.20 amd64 2.57.0 crc_libvirt_4.20.5_amd64.crcbundle 5900000000
+
+  run_verify MOCK_DOCKER_PULL_ERROR=1
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Rebuild it via workflow_dispatch"* ]]
+  [[ "$output" != *"exhausted the runner's disk"* ]]
 }
 
 @test "skips verification when no pin entry exists for the minor" {
