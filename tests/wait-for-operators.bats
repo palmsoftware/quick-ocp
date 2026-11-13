@@ -17,6 +17,21 @@ if [[ "$1" == "get" && "$2" == clusterversion/* ]]; then
   exit 0
 fi
 
+# Timeout diagnostics: per-operator queries, pods, nodes, and events.
+if [[ "$1 $2" == "get co" && -n "${3:-}" && "$3" != --* ]] || [[ "$2" == "pods" || "$2" == "events" || "$1" == "describe" ]]; then
+  if [[ -n "${MOCK_OC_DIAG_FAIL:-}" ]]; then
+    echo "diagnostic query failed" >&2
+    exit 1
+  fi
+  case "$*" in
+    *relatedObjects*) echo "openshift-authentication" ;;
+    *conditions*) echo "Progressing=True: rolling out new pods" ;;
+    describe*) printf 'Conditions:\n  MemoryPressure False\nAddresses:\nAllocated resources:\n  cpu 3800m (95%%)\nEvents:\n' ;;
+    *) echo "mock-output $1 $2 $3" ;;
+  esac
+  exit 0
+fi
+
 ready_rows() {
   echo "authentication 4.18.2 True False False 1m"
   echo "kube-apiserver 4.18.2 True False False 1m"
@@ -125,4 +140,35 @@ teardown() {
   run bash "$SCRIPT" 30
   [ "$status" -eq 1 ]
   [[ "$output" =~ "No cluster operators returned" ]]
+}
+
+@test "dumps diagnostics for stuck operators on timeout" {
+  export MOCK_OC_MODE=progressing
+  run bash "$SCRIPT" 30
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "=== Conditions for clusteroperator/authentication ===" ]]
+  [[ "$output" =~ "Progressing=True: rolling out new pods" ]]
+  [[ "$output" =~ "=== Pods in openshift-authentication (related to authentication) ===" ]]
+  [[ "$output" =~ "=== Pods not Running or Succeeded (all namespaces) ===" ]]
+  [[ "$output" =~ "cpu 3800m" ]]
+  [[ "$output" =~ "MemoryPressure False" ]]
+  [[ "$output" =~ "=== Recent warning events (last 30) ===" ]]
+  [[ "$output" != *"=== Conditions for clusteroperator/kube-apiserver ==="* ]]
+}
+
+@test "still exits 1 when diagnostic queries fail" {
+  export MOCK_OC_MODE=progressing
+  export MOCK_OC_DIAG_FAIL=1
+  run bash "$SCRIPT" 30
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "diagnostic query failed" ]]
+  [[ "$output" =~ "=== Recent warning events (last 30) ===" ]]
+}
+
+@test "dumps cluster-wide diagnostics when oc get co keeps failing" {
+  export MOCK_OC_MODE=failure
+  run bash "$SCRIPT" 30
+  [ "$status" -eq 1 ]
+  [[ "$output" != *"=== Conditions for clusteroperator/"* ]]
+  [[ "$output" =~ "=== Pods not Running or Succeeded (all namespaces) ===" ]]
 }

@@ -207,5 +207,12 @@ while [ $attempt -le $max_attempts ]; do
   exit 1
 done
 
+# crc start exits 0 even when it gave up waiting for cluster operators to
+# settle. That line is buried in debug output, but it predicts later API
+# connection resets and operator-readiness timeouts, so surface it.
+if grep -q "cluster operators are still not stable" "$start_log"; then
+  echo "::warning::crc start finished before cluster operators were stable; later steps may hit API connection resets or operator-readiness timeouts"
+fi
+
 echo "=== Disk usage after CRC start ==="
 df -h
