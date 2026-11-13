@@ -6,14 +6,14 @@ set -e
 GITHUB_API="https://api.github.com/repos/crc-org/crc/releases?per_page=100"
 
 if [ -z "$1" ]; then
-  echo "Usage: $0 <ocp_major.minor> (e.g., 4.18)" >&2
+  echo "Usage: $0 <ocp_major.minor> (e.g., 4.20, 5.0)" >&2
   exit 1
 fi
 OCP_VERSION="$1"
 
-# Only support OCP versions 4.18 and above
-if ! [[ "$OCP_VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
-  echo "Error: Only OCP versions 4.18 and above are supported (e.g., 4.18, 4.19, 4.20)." >&2
+# Only support OCP versions 4.18 and above (including 5.x)
+if ! [[ "$OCP_VERSION" =~ ^(4\.(1[8-9]|[2-9][0-9])|[5-9]\.[0-9]+)$ ]]; then
+  echo "Error: Only OCP versions 4.18 and above are supported (e.g., 4.20, 4.22, 5.0)." >&2
   exit 2
 fi
 

@@ -54,11 +54,11 @@ EXPECTED_OCP_Z_VERSION="${EXPECTED_OCP_Z_VERSION:-}"
 # Key the image tag off the z-version the resolved crc binary embeds when
 # known: for a pinned minor it matches OCP_VERSION, and for
 # desiredOCPVersion: latest it maps the pointer to the concrete minor
-# (e.g. latest → 4.22.14 → the 4.22 image). Arch-suffixed tags are the
+# (e.g. latest → 5.0.0 → the 5.0 image). Arch-suffixed tags are the
 # surface CI validates (check-image-cache.sh, verify-image-cache-content.sh);
 # the bare minor tag is only a manifest list.
 TAG_MINOR="${OCP_VERSION}"
-if [[ "$EXPECTED_OCP_Z_VERSION" =~ ^4\.[0-9]+\.[0-9]+$ ]]; then
+if [[ "$EXPECTED_OCP_Z_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   TAG_MINOR="${EXPECTED_OCP_Z_VERSION%.*}"
 fi
 IMAGE_TAG="${IMAGE_REGISTRY}/${IMAGE_NAME}:${TAG_MINOR}-${ARCH}"
@@ -159,7 +159,7 @@ fi
 # than none — setup would re-download it anyway. When the expected version
 # is missing or unparseable, keep the bundle rather than delete a
 # possibly-good one on a lookup failure.
-if [ -n "$EXPECTED_OCP_Z_VERSION" ] && [[ "$EXPECTED_OCP_Z_VERSION" =~ ^4\.[0-9]+\.[0-9]+$ ]]; then
+if [ -n "$EXPECTED_OCP_Z_VERSION" ] && [[ "$EXPECTED_OCP_Z_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   EXPECTED_BUNDLE_NAME="crc_libvirt_${EXPECTED_OCP_Z_VERSION}_${ARCH}.crcbundle"
   if [ "$(basename "$BUNDLE_FILE")" != "$EXPECTED_BUNDLE_NAME" ]; then
     echo "::warning::Image cache is stale: expected ${EXPECTED_BUNDLE_NAME} (z-version embedded in the crc binary) but found $(basename "$BUNDLE_FILE")"

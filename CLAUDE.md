@@ -50,14 +50,14 @@ Priority for CRC version resolution:
 
 An explicit `crcVersion` is ignored when the requested OCP version is a deprecated alias.
 
-YAML parsers treat `4.20` as `4.2`; the action normalizes this automatically.
+YAML parsers treat `4.20` as `4.2` and `5.0` as `5`; the action normalizes both automatically.
 
 ## Supported Runners
 
 Tested on `ubuntu-22.04`, `ubuntu-24.04`, and `ubuntu-26.04`.
 
 - `ubuntu-20.04` is unsupported (libvirt too old).
-- On `ubuntu-26.04`, use OCP `4.22` or `latest` — older OCP versions fail SSH during CRC start.
+- On `ubuntu-26.04`, use OCP `4.22`, `5.0`, or `latest` — older OCP versions fail SSH during CRC start.
 - On `ubuntu-26.04`, the action sets libvirt `security_driver = "none"` so AppArmor/`virt-aa-helper` does not reject `OVMF.amdsev.fd` during CRC start.
 
 ## External Dependencies

@@ -18,6 +18,10 @@ if [[ "$EFFECTIVE_VERSION" =~ ^4\.([0-9]+)$ ]]; then
     EFFECTIVE_VERSION="4.${MINOR_VERSION}0"
     echo "Normalized version from 4.$MINOR_VERSION to $EFFECTIVE_VERSION (YAML float parsing fix)"
   fi
+elif [[ "$EFFECTIVE_VERSION" =~ ^([5-9])$ ]]; then
+  # YAML parses 5.0 as the integer 5.
+  EFFECTIVE_VERSION="${BASH_REMATCH[1]}.0"
+  echo "Normalized version from ${BASH_REMATCH[1]} to $EFFECTIVE_VERSION (YAML float parsing fix)"
 fi
 
 DEPRECATED_VERSION=""
@@ -36,8 +40,8 @@ if [ -n "$DEPRECATED_VERSION" ]; then
   CRC_VERSION_OVERRIDE=""
 fi
 
-if [ "$EFFECTIVE_VERSION" != "latest" ] && [[ ! "$EFFECTIVE_VERSION" =~ ^4\.(1[8-9]|[2-9][0-9])$ ]]; then
-  gha_error "Invalid desiredOCPVersion: '$REQUESTED_VERSION'. Supported values are 4.20 and later, or 'latest'."
+if [ "$EFFECTIVE_VERSION" != "latest" ] && [[ ! "$EFFECTIVE_VERSION" =~ ^(4\.(1[8-9]|[2-9][0-9])|[5-9]\.[0-9]+)$ ]]; then
+  gha_error "Invalid desiredOCPVersion: '$REQUESTED_VERSION'. Supported values are 4.20 and later (including 5.x), or 'latest'."
   exit 1
 fi
 

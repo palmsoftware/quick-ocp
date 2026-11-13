@@ -60,6 +60,27 @@ teardown() {
   grep -q "effective_version=4.20" "$GITHUB_OUTPUT"
 }
 
+@test "normalizes YAML integer 5 to 5.0" {
+  run bash "$SCRIPT" "5" "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Normalized version from 5 to 5.0" ]]
+  grep -q "effective_version=5.0" "$GITHUB_OUTPUT"
+}
+
+@test "accepts OCP 5.0 and preserves its CRC override" {
+  run env CRC_VERSION_OVERRIDE="2.65.0" bash "$SCRIPT" "5.0" "$REPO_ROOT"
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "::warning::" ]]
+  grep -q "effective_version=5.0" "$GITHUB_OUTPUT"
+  grep -q "crc_version_override=2.65.0" "$GITHUB_OUTPUT"
+}
+
+@test "rejects a bare major version below 5" {
+  run bash "$SCRIPT" "4" "$REPO_ROOT"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "::error::Invalid desiredOCPVersion" ]]
+}
+
 @test "leaves latest unchanged" {
   run bash "$SCRIPT" "latest" "$REPO_ROOT"
   [ "$status" -eq 0 ]

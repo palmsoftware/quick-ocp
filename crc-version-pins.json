@@ -9,7 +9,8 @@
     "latest": "auto",
     "4.20": "auto",
     "4.21": "auto",
-    "4.22": "auto"
+    "4.22": "auto",
+    "5.0": "auto"
   },
   "known_issues": {
     "4.19": {
