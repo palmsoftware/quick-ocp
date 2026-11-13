@@ -73,6 +73,9 @@ case "${1:-}" in
       echo "Failed to connect to the CRC VM with SSH" >&2
       exit 1
     fi
+    if [[ -n "${TEST_CRC_START_UNSTABLE:-}" ]]; then
+      echo 'level=warning msg="Cluster is not ready: cluster operators are still not stable after 10m0.3s"'
+    fi
     exit 0
     ;;
   stop) exit 0 ;;
@@ -243,4 +246,29 @@ teardown() {
   [ "$(cat "$TEST_CRC_SETUP_COUNT")" -eq 1 ]
   [[ "$output" != *"made no progress"* ]]
   [ -e "$TEST_ROOT/mnt-crc-cache/crc_libvirt_4.20.5_amd64.crcbundle" ]
+}
+
+@test "warns when crc start finishes before cluster operators are stable" {
+  secret_file="$TEST_ROOT/pull-secret.json"
+  printf '{"auths":{}}' >"$secret_file"
+  export PULL_SECRET_FILE="$secret_file"
+  export USER="$(id -un)"
+  export TEST_CRC_START_UNSTABLE=1
+
+  run bash "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"::warning::crc start finished before cluster operators were stable"* ]]
+}
+
+@test "does not warn when crc start reports stable operators" {
+  secret_file="$TEST_ROOT/pull-secret.json"
+  printf '{"auths":{}}' >"$secret_file"
+  export PULL_SECRET_FILE="$secret_file"
+  export USER="$(id -un)"
+
+  run bash "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"cluster operators were stable"* ]]
 }
