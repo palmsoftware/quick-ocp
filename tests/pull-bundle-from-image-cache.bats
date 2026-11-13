@@ -163,6 +163,27 @@ run_pull() {
   [ -e "$TEST_ROOT/crc-cache/crc_libvirt_4.22.14_${ARCH}.crcbundle" ]
 }
 
+@test "keys the Quay tag off an OCP 5.x z-version for latest (preseed mode)" {
+  make_bundle_tar "crc_libvirt_5.0.0_${ARCH}.crcbundle"
+
+  run_pull preseed OCP_VERSION=latest EXPECTED_OCP_Z_VERSION=5.0.0
+
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_ROOT/gh-output")" = "result=preseeded" ]
+  grep -q "manifest inspect ${IMAGE_TAG_PREFIX}:5.0-${ARCH}" "$TEST_ROOT/docker-args"
+  [ -e "$TEST_ROOT/crc-cache/crc_libvirt_5.0.0_${ARCH}.crcbundle" ]
+}
+
+@test "removes a stale bundle for an OCP 5.x z-version" {
+  make_bundle_tar "crc_libvirt_5.0.0_${ARCH}.crcbundle"
+
+  run_pull preseed OCP_VERSION=5.0 EXPECTED_OCP_Z_VERSION=5.0.1
+
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_ROOT/gh-output")" = "result=skipped-stale" ]
+  [ ! -e "$TEST_ROOT/crc-cache/crc_libvirt_5.0.0_${ARCH}.crcbundle" ]
+}
+
 @test "skips the freshness check when EXPECTED_OCP_Z_VERSION is not set" {
   make_bundle_tar "crc_libvirt_4.20.0_${ARCH}.crcbundle"
   run_pull preseed

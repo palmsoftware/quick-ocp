@@ -28,6 +28,13 @@ teardown() {
   grep -q "crc_version=2.54.0" "$GITHUB_OUTPUT"
 }
 
+@test "auto-detects the CRC version for OCP 5.0" {
+  run bash "$SCRIPT" "5.0" "$TMPDIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Fetching CRC version for OCP 5.0" ]]
+  grep -q "crc_version=2.99.0" "$GITHUB_OUTPUT"
+}
+
 @test "explicit CRC version bypasses version detection" {
   run bash "$SCRIPT" "4.20" "$REPO_ROOT" "2.99.0"
   [ "$status" -eq 0 ]

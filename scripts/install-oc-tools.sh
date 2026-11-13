@@ -208,7 +208,7 @@ verify_version() {
 
 version_info() {
 
-  if [[ $1 =~ ^4+\.[0-9]+\.[0-9]+$ ]]; then
+  if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     status_code=$(curl --write-out "%{http_code}" --silent --output /dev/null "${MIRROR_DOMAIN}${MIRROR_PATH}/ocp/$1/release.txt")
     releasetext="${MIRROR_DOMAIN}${MIRROR_PATH}/ocp/$1/release.txt"
   else
@@ -282,7 +282,7 @@ release() {
 
   restore "$1" "$2"
 
-  if [[ $1 =~ ^4+\.[0-9]+\.[0-9]+$ ]]; then
+  if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Specific version specified. Downloading that version."
     printf "\n"
     version "$1"

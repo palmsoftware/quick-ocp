@@ -16,7 +16,7 @@ If you are looking to quickly spawn Kubernetes in your Action runner, try [quick
 
 This action is tested on the following GitHub Actions runners:
 
-- `ubuntu-26.04` (OCP `4.22` and `latest` only — older OCP versions fail SSH during CRC start; GitHub-hosted runners temporarily use the libvirt security workaround for split OVMF packages, then restore their original configuration)
+- `ubuntu-26.04` (OCP `4.22`, `5.0`, and `latest` only — older OCP versions fail SSH during CRC start; GitHub-hosted runners temporarily use the libvirt security workaround for split OVMF packages, then restore their original configuration)
 - `ubuntu-24.04`
 - `ubuntu-22.04`
 
@@ -61,7 +61,7 @@ steps:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `ocpPullSecret` | Pull secret for OpenShift Local | Yes | — |
-| `desiredOCPVersion` | OpenShift version to deploy (`4.20` or later, or `latest`; `4.18` and `4.19` are deprecated aliases for `4.20`) | No | `latest` |
+| `desiredOCPVersion` | OpenShift version to deploy (`4.20` or later including `5.0`, or `latest`; `4.18` and `4.19` are deprecated aliases for `4.20`) | No | `latest` |
 | `crcVersion` | Specific CRC version to use (overrides version detection and pinning) | No | — |
 | `bundleCache` | Cache the CRC bundles for faster startup | No | `false` |
 | `imageBundleCache` | Pre-seed the CRC bundle from the Quay image cache before setup, avoiding the OpenShift mirror on bundle-cache misses | No | `true` |
@@ -114,10 +114,10 @@ with:
 ```
 
 - The default is `latest`, which will use the most recent supported version. If you omit `desiredOCPVersion`, you will get the latest version. An explicitly empty value (`desiredOCPVersion: ''`) is rejected.
-- Supported values are `4.20` and later, and `latest`.
+- Supported values are `4.20`, `4.21`, `4.22`, `5.0`, and `latest`. `latest` follows the newest CRC release, which is currently OpenShift `5.0`.
 - `4.18` and `4.19` are deprecated and accepted as aliases for `4.20`. The action emits a GitHub Actions warning and continues with `4.20`; any `crcVersion` override supplied with them is ignored.
 
-**Note:** YAML parsers interpret `4.20` as a floating-point number and convert it to `4.2`. The action automatically normalizes this back to `4.20`, so you don't need to quote version numbers in your workflow files.
+**Note:** YAML parsers interpret `4.20` as a floating-point number and convert it to `4.2`. Likewise, `5.0` is parsed as the integer `5`. The action automatically normalizes both back (`4.20`, `5.0`), so you don't need to quote version numbers in your workflow files.
 
 For more details, see [action.yml](action.yml) and the [reusable workflow examples](.github/workflows/reusable-ocp-tests.yml).
 
@@ -145,7 +145,8 @@ To ensure stability and avoid issues with specific CRC releases, this action use
     "latest": "auto",
     "4.20": "auto",
     "4.21": "auto",
-    "4.22": "auto"
+    "4.22": "auto",
+    "5.0": "auto"
   },
   "known_issues": {
     "4.19": {

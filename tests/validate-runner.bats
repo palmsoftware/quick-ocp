@@ -37,6 +37,12 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "passes on Ubuntu 26.04 with OCP 5.0" {
+  export MOCK_UBUNTU_VERSION=26.04
+  run bash "$SCRIPT" "5.0"
+  [ "$status" -eq 0 ]
+}
+
 @test "passes on Ubuntu 26.04 with latest OCP" {
   export MOCK_UBUNTU_VERSION=26.04
   run bash "$SCRIPT" "latest"
